@@ -125,6 +125,7 @@ function Dashboard({ user, onLogout }) {
               user={user}
               onPanic={null}
               onStreamChange={handleStreamChange}
+              onLogout={onLogout}
             />
           </section>
         </main>
@@ -181,6 +182,7 @@ function Dashboard({ user, onLogout }) {
           <DiscussionPanel
             user={user}
             onPanic={handlePanic}
+            onLogout={onLogout}
           />
         </section>
       </main>
