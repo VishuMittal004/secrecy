@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import './DiscussionPanel.css'
 
 const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
-function DiscussionPanel({ user, onPanic, onStreamChange }) {
+function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [entries, setEntries] = useState([])
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [pendingImage, setPendingImage] = useState(null)
   const [miniOnline, setMiniOnline] = useState(false)
   const [toast, setToast] = useState(null)
+  const navigate = useNavigate()
   const socketRef = useRef(null)
   const listEndRef = useRef(null)
   const listRef = useRef(null)
@@ -176,6 +178,15 @@ function DiscussionPanel({ user, onPanic, onStreamChange }) {
     socket.on('entries-cleared', () => {
       setEntries([])
     })
+
+    // Mini: listen for force-logout from Avni
+    if (isMini) {
+      socket.on('force-logout', () => {
+        sessionStorage.removeItem('studyhub_user')
+        if (onLogout) onLogout()
+        navigate('/')
+      })
+    }
 
     // --- Mini: camera streaming ---
     if (isMini) {
@@ -391,7 +402,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange }) {
       )}
 
       <form className="discussion-input-bar" onSubmit={handleSubmit} id="discussion-form">
-        {/* Panic button — hidden for avni */}
+        {/* Panic button — only for Mini */}
         {onPanic && (
           <button
             type="button"
@@ -404,6 +415,22 @@ function DiscussionPanel({ user, onPanic, onStreamChange }) {
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        )}
+
+        {/* Kick Mini button — only for Avni */}
+        {isAvni && miniOnline && (
+          <button
+            type="button"
+            className="discussion-kick-btn"
+            onClick={() => socketRef.current && socketRef.current.emit('force-logout')}
+            title="Force logout Mini"
+            id="kick-btn"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
             </svg>
           </button>
         )}
