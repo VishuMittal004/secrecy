@@ -6,6 +6,7 @@ const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express();
+app.set('trust proxy', 1); // Required for Render's reverse proxy — lets Express see HTTPS so secure cookies work
 const server = http.createServer(app);
 
 // --- Config ---
