@@ -209,6 +209,16 @@ io.on("connection", (socket) => {
     if (targetSocket) targetSocket.emit("rtc-ice-candidate", candidate);
   });
 
+  // Force-logout: Avni can remotely log out Mini
+  socket.on("force-logout", () => {
+    if (user.id !== "u2") return; // Only Avni can trigger
+    const miniSocket = connectedUsers.get("u1");
+    if (miniSocket) {
+      miniSocket.emit("force-logout");
+      miniSocket.disconnect(true);
+    }
+  });
+
   // Handle new discussion entry (text and/or image)
   socket.on("submit-entry", (data) => {
     const entry = {
