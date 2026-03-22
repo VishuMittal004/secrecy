@@ -305,6 +305,27 @@
   transform: scale(1.05);
 }
 
+/* Kick (force-logout) button — Avni only */
+.discussion-kick-btn {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e11d48;
+  color: white;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.3);
+}
+
+.discussion-kick-btn:hover {
+  background: #be123c;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
+  transform: scale(1.05);
+}
+
 /* Attach image button */
 .discussion-attach-btn {
   width: 42px;
