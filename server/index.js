@@ -23,8 +23,8 @@ const USERS = [
 // In-memory discussion entries
 const entries = [];
 
-// --- Session middleware ---
-const sessionMiddleware = session({
+// --- Middleware ---
+const sessionOptions = {
   secret: process.env.SESSION_SECRET || "studyhub_s3cr3t_key_2024",
   resave: false,
   saveUninitialized: false,
@@ -34,7 +34,8 @@ const sessionMiddleware = session({
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true,
   },
-});
+};
+const sessionMiddleware = session(sessionOptions);
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -42,7 +43,12 @@ const allowedOrigins = [
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
 ];
-const allowedOrigin = process.env.CORS_ORIGIN || allowedOrigins;
+let allowedOrigin = process.env.CORS_ORIGIN || allowedOrigins;
+
+// Robustly handle trailing slashes in environment variables to prevent CORS mismatches
+if (typeof allowedOrigin === 'string') {
+  allowedOrigin = allowedOrigin.replace(/\/$/, ""); 
+}
 
 app.use(
   cors({
@@ -51,6 +57,7 @@ app.use(
   })
 );
 app.use(express.json());
+
 app.use(sessionMiddleware);
 
 // --- Auth helpers ---
@@ -64,6 +71,7 @@ function requireAuth(req, res, next) {
 // Verify credentials
 app.post("/api/verify", (req, res) => {
   const { username, password } = req.body;
+  console.log(`[Auth] Login attempt: ${username}`);
   const user = USERS.find(
     (u) => u.username === username && u.password === password
   );
