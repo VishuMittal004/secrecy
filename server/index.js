@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 // --- Config ---
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const SESSION_SECRET = "studyhub_s3cr3t_key_2024";
 
 // Hardcoded users
