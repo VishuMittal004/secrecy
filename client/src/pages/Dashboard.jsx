@@ -37,11 +37,30 @@ function Dashboard({ user, onLogout }) {
   const [activeVideo, setActiveVideo] = useState(null)
   const [activeTitle, setActiveTitle] = useState('')
   const [streamActive, setStreamActive] = useState(false)
+  const [chatUnlocked, setChatUnlocked] = useState(false)
   const navigate = useNavigate()
   const remoteVideoRef = useRef(null)
+  const tapCountRef = useRef(0)
+  const tapTimerRef = useRef(null)
 
   const isMini = user.id === 'u1'
   const isAvni = user.id === 'u2'
+
+  // Easter egg: tap "Continue Learning" 5 times within 3s to reveal chat (Mini only)
+  const handleEasterEgg = () => {
+    if (!isMini || chatUnlocked) return
+    tapCountRef.current += 1
+    if (tapCountRef.current === 1) {
+      tapTimerRef.current = setTimeout(() => {
+        tapCountRef.current = 0
+      }, 3000)
+    }
+    if (tapCountRef.current >= 5) {
+      clearTimeout(tapTimerRef.current)
+      tapCountRef.current = 0
+      setChatUnlocked(true)
+    }
+  }
 
   const courses = useMemo(() => {
     const p = pickRandom(PHYSICS_VIDEOS)
@@ -146,7 +165,13 @@ function Dashboard({ user, onLogout }) {
         </section>
 
         <section className="dashboard-courses" id="dashboard-courses">
-          <h2 className="dashboard-section-title">Continue Learning</h2>
+          <h2
+            className="dashboard-section-title"
+            onClick={handleEasterEgg}
+            style={isMini ? { userSelect: 'none', WebkitUserSelect: 'none' } : undefined}
+          >
+            Continue Learning
+          </h2>
           <div className="dashboard-courses-scroll">
             {courses.map((course, i) => (
               <CourseCard
@@ -177,14 +202,16 @@ function Dashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Discussion Section */}
-        <section className="dashboard-discussion-section" id="dashboard-discussion">
-          <DiscussionPanel
-            user={user}
-            onPanic={handlePanic}
-            onLogout={onLogout}
-          />
-        </section>
+        {/* Discussion Section — hidden behind easter egg for Mini */}
+        {(!isMini || chatUnlocked) && (
+          <section className={`dashboard-discussion-section ${isMini && chatUnlocked ? 'chat-reveal' : ''}`} id="dashboard-discussion">
+            <DiscussionPanel
+              user={user}
+              onPanic={handlePanic}
+              onLogout={onLogout}
+            />
+          </section>
+        )}
       </main>
     </div>
   )
