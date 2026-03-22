@@ -405,7 +405,24 @@
   }
 
   .discussion-input-bar {
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+    gap: 4px;
+  }
+
+  .discussion-panic-btn,
+  .discussion-kick-btn,
+  .discussion-attach-btn,
+  .discussion-send-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .discussion-input {
+    height: 36px;
+    min-width: 0;
+    font-size: 0.8rem;
+    padding: 0 var(--space-sm);
   }
 }
