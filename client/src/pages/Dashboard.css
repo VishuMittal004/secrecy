@@ -64,6 +64,24 @@
   margin-top: var(--space-lg);
 }
 
+/* Easter egg chat reveal animation */
+.dashboard-discussion-section.chat-reveal {
+  animation: chatSlideIn 0.4s ease-out;
+}
+
+@keyframes chatSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 2000px;
+  }
+}
+
 /* PiP Floating Video */
 .dashboard-pip-video {
   position: fixed;
