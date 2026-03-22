@@ -91,7 +91,7 @@ function Dashboard({ user, onLogout }) {
   if (isAvni) {
     return (
       <div className="dashboard-page">
-        <Navbar user={user} onLogout={null} />
+        <Navbar user={user} onLogout={onLogout} />
         <main className="dashboard-content dashboard-content-avni">
           {/* Big camera feed area */}
           <section className="avni-camera-section">
