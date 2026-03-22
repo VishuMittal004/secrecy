@@ -79,7 +79,8 @@ function Dashboard({ user, onLogout }) {
 
   const handlePanic = async () => {
     try {
-      await fetch('/api/purge', { method: 'POST', credentials: 'include' })
+      const apiUrl = import.meta.env.VITE_API_URL || ''
+      await fetch(`${apiUrl}/api/purge`, { method: 'POST', credentials: 'include' })
     } catch {}
     sessionStorage.removeItem('studyhub_user')
     onLogout()
