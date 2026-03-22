@@ -15,7 +15,7 @@ function Navbar({ user, onLogout }) {
   return (
     <nav className="navbar" id="main-navbar">
       <Link to="/" className="navbar-brand">
-        <span className="navbar-title">Study<span className="navbar-title-accent">Hub</span></span>
+        <span className="navbar-title">Physics<span className="navbar-title-accent">Wallah</span></span>
       </Link>
       <div className="navbar-actions">
         {user ? (
