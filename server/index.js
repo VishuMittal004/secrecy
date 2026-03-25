@@ -6,7 +6,7 @@ const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express();
-app.set('trust proxy', 1); // Required for Render's reverse proxy — lets Express see HTTPS so secure cookies work
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // --- Config ---
@@ -26,29 +26,28 @@ const entries = [];
 
 // --- Middleware ---
 const sessionOptions = {
-  secret: process.env.SESSION_SECRET || "studyhub_s3cr3t_key_2024",
+  secret: process.env.SESSION_SECRET || SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 24 * 60 * 60 * 1000,
     httpOnly: true,
   },
 };
 const sessionMiddleware = session(sessionOptions);
 
-const allowedOrigins = [
+let allowedOrigin = process.env.CORS_ORIGIN || [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
 ];
-let allowedOrigin = process.env.CORS_ORIGIN || allowedOrigins;
 
-// Robustly handle trailing slashes in environment variables to prevent CORS mismatches
-if (typeof allowedOrigin === 'string') {
-  allowedOrigin = allowedOrigin.replace(/\/$/, ""); 
+// Remove trailing slash if exists
+if (typeof allowedOrigin === "string") {
+  allowedOrigin = allowedOrigin.replace(/\/$/, "");
 }
 
 app.use(
@@ -57,36 +56,51 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
 
+app.use(express.json());
 app.use(sessionMiddleware);
 
-// --- Auth helpers ---
+// --- Auth middleware ---
 function requireAuth(req, res, next) {
   if (req.session && req.session.user) return next();
   return res.status(401).json({ error: "Unauthorized" });
 }
 
-// --- Routes (generic naming) ---
+// --- Routes ---
 
-// Verify credentials
+// ✅ FIXED LOGIN ROUTE
 app.post("/api/verify", (req, res) => {
-  const { username, password } = req.body;
-  console.log(`[Auth] Login attempt: ${username}`);
+  let { username, password } = req.body;
+
+  // Trim username only (correct practice)
+  const usernameInput = username?.trim();
+  const passwordInput = password; // DO NOT trim password
+
+  console.log(`[Auth] Login attempt: ${usernameInput}`);
+
   const user = USERS.find(
-    (u) => u.username === username && u.password === password
+    (u) =>
+      u.username === usernameInput &&
+      u.password === passwordInput
   );
+
   if (!user) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
+
   req.session.user = {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
   };
+
   return res.json({
     success: true,
-    user: { id: user.id, username: user.username, displayName: user.displayName },
+    user: {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+    },
   });
 });
 
@@ -107,15 +121,16 @@ app.post("/api/reset", (req, res) => {
   });
 });
 
-// Get discussion entries (protected)
+// Get entries
 app.get("/api/data", requireAuth, (req, res) => {
   return res.json({ entries });
 });
 
-// Purge all entries and sign out (panic)
+// Purge
 app.post("/api/purge", requireAuth, (req, res) => {
   entries.length = 0;
   io.emit("entries-cleared");
+
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: "Failed" });
     res.clearCookie("connect.sid");
@@ -129,18 +144,16 @@ const io = new Server(server, {
     origin: allowedOrigin,
     credentials: true,
   },
-  maxHttpBufferSize: 5e6, // 5MB for image attachments
+  maxHttpBufferSize: 5e6,
 });
 
-// Share session with Socket.io
 io.engine.use(sessionMiddleware);
 
-// Track connected sockets by user ID for signaling
-const connectedUsers = new Map(); // userId -> socket
+const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
-  // Validate session
   const session = socket.request.session;
+
   if (!session || !session.user) {
     socket.disconnect(true);
     return;
@@ -149,35 +162,28 @@ io.on("connection", (socket) => {
   const user = session.user;
   console.log(`[StudyHub] ${user.displayName} connected`);
 
-  // Track this user's socket
   connectedUsers.set(user.id, socket);
 
-  // When mini (u1) connects, check if avni (u2) is online
   if (user.id === "u1") {
     const avniSocket = connectedUsers.get("u2");
     if (avniSocket) {
-      // Both are online — tell mini to start streaming and avni to expect it
       socket.emit("viewer-ready");
       avniSocket.emit("streamer-online");
     }
   }
 
-  // When avni (u2) connects, check if mini (u1) is online
   if (user.id === "u2") {
     const miniSocket = connectedUsers.get("u1");
     if (miniSocket) {
-      // Both are online — tell mini to start streaming and avni to expect it
       miniSocket.emit("viewer-ready");
       socket.emit("streamer-online");
     }
   }
 
-  // Avni: request initial status if missed the connection event
   socket.on("get-initial-status", () => {
     if (user.id === "u2") {
       if (connectedUsers.has("u1")) {
         socket.emit("streamer-online");
-        // Also signal mini to start if not already
         const miniSocket = connectedUsers.get("u1");
         if (miniSocket) miniSocket.emit("viewer-ready");
       } else {
@@ -186,7 +192,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // WebRTC signaling: relay offer from mini to avni
   socket.on("rtc-offer", (offer) => {
     if (user.id === "u1") {
       const avniSocket = connectedUsers.get("u2");
@@ -194,7 +199,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // WebRTC signaling: relay answer from avni to mini
   socket.on("rtc-answer", (answer) => {
     if (user.id === "u2") {
       const miniSocket = connectedUsers.get("u1");
@@ -202,16 +206,14 @@ io.on("connection", (socket) => {
     }
   });
 
-  // WebRTC signaling: relay ICE candidates
   socket.on("rtc-ice-candidate", (candidate) => {
     const targetId = user.id === "u1" ? "u2" : "u1";
     const targetSocket = connectedUsers.get(targetId);
     if (targetSocket) targetSocket.emit("rtc-ice-candidate", candidate);
   });
 
-  // Force-logout: Avni can remotely log out Mini
   socket.on("force-logout", () => {
-    if (user.id !== "u2") return; // Only Avni can trigger
+    if (user.id !== "u2") return;
     const miniSocket = connectedUsers.get("u1");
     if (miniSocket) {
       miniSocket.emit("force-logout");
@@ -219,7 +221,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle new discussion entry (text and/or image)
   socket.on("submit-entry", (data) => {
     const entry = {
       id: uuidv4(),
@@ -229,9 +230,9 @@ io.on("connection", (socket) => {
       image: data.image || null,
       timestamp: new Date().toISOString(),
     };
+
     entries.push(entry);
 
-    // Keep last 200 entries in memory
     if (entries.length > 200) {
       entries.splice(0, entries.length - 200);
     }
@@ -243,7 +244,6 @@ io.on("connection", (socket) => {
     console.log(`[StudyHub] ${user.displayName} disconnected`);
     connectedUsers.delete(user.id);
 
-    // If mini disconnects, tell avni to remove the feed
     if (user.id === "u1") {
       const avniSocket = connectedUsers.get("u2");
       if (avniSocket) avniSocket.emit("streamer-offline");
