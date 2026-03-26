@@ -15,7 +15,7 @@ function Login({ onLogin }) {
     setLoading(true)
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || ''
+      const apiUrl = "http://localhost:3001"
       const res = await fetch(`${apiUrl}/api/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

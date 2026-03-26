@@ -106,6 +106,19 @@
   gap: var(--space-md);
 }
 
+.home-no-results {
+  text-align: center;
+  padding: var(--space-2xl) 0;
+  background: #f8f9fa;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+}
+
+.home-no-results p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
 @media (min-width: 480px) {
   .home-courses-grid {
     grid-template-columns: repeat(2, 1fr);

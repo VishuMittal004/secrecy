@@ -13,7 +13,7 @@ function App() {
 
   useEffect(() => {
     // Verify session on mount
-    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const apiUrl = "http://localhost:3001"
     fetch(`${apiUrl}/api/status`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -34,7 +34,7 @@ function App() {
   }
 
   const handleLogout = async () => {
-    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const apiUrl = "http://localhost:3001"
     await fetch(`${apiUrl}/api/reset`, { method: 'POST', credentials: 'include' })
     setUser(null)
     sessionStorage.removeItem('studyhub_user')

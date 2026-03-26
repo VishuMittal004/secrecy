@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -52,7 +53,7 @@ if (typeof allowedOrigin === "string") {
 
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
@@ -124,6 +125,51 @@ app.post("/api/reset", (req, res) => {
 // Get entries
 app.get("/api/data", requireAuth, (req, res) => {
   return res.json({ entries });
+});
+
+// YouTube Search API
+app.get("/api/youtube/search", requireAuth, async (req, res) => {
+  const { q } = req.query;
+  const API_KEY = process.env.YOUTUBE_API_KEY;
+
+  if (!q || q.trim().length === 0) {
+    return res.status(400).json({ error: "Search query is required" });
+  }
+
+  if (q.length > 100) {
+    return res.status(400).json({ error: "Search query too long" });
+  }
+
+  if (!API_KEY) {
+    console.error("[YouTube] API key missing");
+    return res.status(500).json({ error: "YouTube search is not configured" });
+  }
+
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(
+        q
+      )}&type=video&key=${API_KEY}`
+    );
+
+    if (!response.ok) {
+      const errData = await response.json();
+      console.error("[YouTube] API Error:", errData);
+      return res.status(response.status).json({ error: "YouTube API error" });
+    }
+
+    const data = await response.json();
+    const results = data.items.map((item) => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      thumbnail: item.snippet.thumbnails.medium.url,
+    }));
+
+    return res.json({ results });
+  } catch (err) {
+    console.error("[YouTube] Search error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch from YouTube" });
+  }
 });
 
 // Purge
@@ -238,6 +284,11 @@ io.on("connection", (socket) => {
     }
 
     io.emit("new-entry", entry);
+  });
+
+  socket.on("video-selected", (videoId) => {
+    console.log(`[YouTube] ${user.displayName} selected video: ${videoId}`);
+    io.emit("video-selected", videoId);
   });
 
   socket.on("disconnect", () => {

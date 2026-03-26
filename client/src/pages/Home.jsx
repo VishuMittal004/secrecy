@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import CourseCard from '../components/CourseCard'
 import './Home.css'
@@ -35,8 +35,51 @@ function pickRandom(arr) {
 
 function Home({ user, onLogout }) {
   const [playingVideo, setPlayingVideo] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+
+  // YouTube Search Effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const apiUrl = "http://localhost:3001"
+        const res = await fetch(`${apiUrl}/api/youtube/search?q=${encodeURIComponent(searchQuery)}`, {
+          credentials: 'include'
+        })
+        const data = await res.json()
+        if (data.results) {
+          setSearchResults(data.results.map(v => ({
+            title: v.title,
+            description: 'YouTube Video',
+            progress: Math.floor(Math.random() * 100),
+            tag: 'YouTube',
+            videoId: v.videoId,
+            thumbnail: v.thumbnail
+          })))
+        }
+      } catch (err) {
+        console.error("Search error:", err)
+      } finally {
+        setSearching(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const courses = useMemo(() => {
+    if (searchQuery.trim()) {
+      return searchResults
+    }
+
     const p1 = pickRandom(PHYSICS_VIDEOS)
     const p2 = pickRandom(PHYSICS_VIDEOS)
     const c1 = pickRandom(CHEMISTRY_VIDEOS)
@@ -52,25 +95,27 @@ function Home({ user, onLogout }) {
       { icon: '', title: c2.title, description: c2.desc, progress: 21, videoId: c2.videoId },
       { icon: '', title: m2.title, description: m2.desc, progress: 12, videoId: m2.videoId },
     ]
-  }, [])
+  }, [searchQuery])
 
   return (
     <div className="home-page">
-      <Navbar user={user} onLogout={onLogout} />
+      <Navbar user={user} onLogout={onLogout} onSearch={setSearchQuery} />
       <main className="home-content">
         {/* Hero Banner */}
-        <section className="home-hero">
-          <div className="home-hero-content">
-            <span className="home-hero-badge">Class 11 — JEE / NEET</span>
-            <h1 className="home-hero-title">
-              Padhai ko banao
-              <span className="home-hero-accent"> asaan aur affordable</span>
-            </h1>
-            <p className="home-hero-desc">
-              Physics, Chemistry, Maths — Complete syllabus with video lectures, notes, and doubt solving.
-            </p>
-          </div>
-        </section>
+        {!searchQuery && (
+          <section className="home-hero">
+            <div className="home-hero-content">
+              <span className="home-hero-badge">Class 11 — JEE / NEET</span>
+              <h1 className="home-hero-title">
+                Padhai ko banao
+                <span className="home-hero-accent"> asaan aur affordable</span>
+              </h1>
+              <p className="home-hero-desc">
+                Physics, Chemistry, Maths — Complete syllabus with video lectures, notes, and doubt solving.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Video Player Modal */}
         {playingVideo && (
@@ -91,16 +136,22 @@ function Home({ user, onLogout }) {
         )}
 
         {/* Courses Section */}
-        <section className="home-courses" id="courses-section">
+        <section className={`home-courses ${searchQuery ? 'search-results' : ''}`} id="courses-section">
           <div className="home-section-header">
-            <h2>Explore Courses</h2>
-            <span className="home-course-count">{courses.length} courses</span>
+            <h2>{searching ? 'Searching YouTube...' : (searchQuery ? `Search Results for "${searchQuery}"` : 'Explore Courses')}</h2>
+            <span className="home-course-count">{courses.length} {courses.length === 1 ? 'result' : 'results'}</span>
           </div>
-          <div className="home-courses-grid">
-            {courses.map((course, i) => (
-              <CourseCard key={i} {...course} onPlay={(vid) => setPlayingVideo(vid)} />
-            ))}
-          </div>
+          {courses.length > 0 ? (
+            <div className="home-courses-grid">
+              {courses.map((course, i) => (
+                <CourseCard key={i} {...course} onPlay={(vid) => setPlayingVideo(vid)} />
+              ))}
+            </div>
+          ) : (
+            <div className="home-no-results">
+              <p>No videos found matching your search.</p>
+            </div>
+          )}
         </section>
 
         {/* Stats Section */}

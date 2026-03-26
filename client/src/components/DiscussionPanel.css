@@ -1,10 +1,11 @@
 .discussion-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: visible;
   height: calc(100vh - 340px);
   min-height: 300px;
   box-shadow: var(--shadow-card);
@@ -40,10 +41,53 @@
   line-height: 1.2;
 }
 
-.discussion-subtitle {
-  font-size: 0.72rem;
+.discussion-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.youtube-toggle-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
   color: var(--text-muted);
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.youtube-toggle-btn:hover {
+  background: #fff5f5;
+  color: #ff0000;
+  border-color: #ff0000;
+  transform: scale(1.05);
+}
+
+.youtube-toggle-btn.active {
+  background: #ff0000;
+  color: white;
+  border-color: #ff0000;
+}
+
+.youtube-search-overlay {
+  position: absolute;
+  top: 66px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 50;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* Status Badge */
@@ -425,4 +469,19 @@
     font-size: 0.8rem;
     padding: 0 var(--space-sm);
   }
+}
+
+/* YouTube Search Overlay */
+.youtube-search-overlay {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  background: #111;
+  z-index: 999;
+  overflow-y: auto;
+  border-top: 1px solid #333;
+  border-bottom: 1px solid #333;
+  border: 2px solid red; /* Temporary debug border */
 }

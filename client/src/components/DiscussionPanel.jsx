@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { io } from 'socket.io-client'
+import YouTubePlayer from './YouTubePlayer'
 import './DiscussionPanel.css'
 
 const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
-function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
+function DiscussionPanel({ user, socket, onPanic, onStreamChange, onLogout }) {
   const [entries, setEntries] = useState([])
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [pendingImage, setPendingImage] = useState(null)
   const [miniOnline, setMiniOnline] = useState(false)
   const [toast, setToast] = useState(null)
+  const [syncedVideoId, setSyncedVideoId] = useState(null)
   const navigate = useNavigate()
-  const socketRef = useRef(null)
   const listEndRef = useRef(null)
   const listRef = useRef(null)
   const pcRef = useRef(null)
@@ -143,7 +143,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
   useEffect(() => {
     // Fetch existing entries
-    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const apiUrl = "http://localhost:3001"
     fetch(`${apiUrl}/api/data`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
@@ -151,11 +151,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       })
       .catch(() => {})
 
-    const socket = io(apiUrl, {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-    })
-    socketRef.current = socket
+    if (!socket) return
 
     socket.on('connect', () => {
       setConnected(true)
@@ -173,6 +169,10 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           tag: 'studyhub-msg',
         })
       }
+    })
+
+    socket.on('video-selected', (videoId) => {
+      setSyncedVideoId(videoId)
     })
 
     socket.on('entries-cleared', () => {
@@ -257,9 +257,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     return () => {
       cleanupRTC()
-      socket.disconnect()
+      // Note: socket cleanup handled by parent (Dashboard)
     }
-  }, [])
+  }, [socket])
 
   useEffect(() => {
     scrollToBottom()
@@ -268,8 +268,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     const content = input.trim()
-    if ((!content && !pendingImage) || !socketRef.current) return
-    socketRef.current.emit('submit-entry', { content, image: pendingImage })
+    if ((!content && !pendingImage) || !socket) return
+    socket.emit('submit-entry', { content, image: pendingImage })
     setInput('')
     setPendingImage(null)
   }
@@ -322,26 +322,26 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     <div className="discussion-panel" id="discussion-panel">
       <div className="discussion-header">
         <div className="discussion-header-left">
-          <div>
-            <h2 className="discussion-title">Doubt Section</h2>
-            <p className="discussion-subtitle">Ask questions, share notes, and resolve doubts</p>
-          </div>
+          <h2 className="discussion-title">Doubt Section</h2>
+          <p className="discussion-subtitle">Ask questions, share notes, and resolve doubts</p>
         </div>
-        {isAvni && (
-          <div className={`mini-status-badge ${miniOnline ? 'online' : 'offline'}`}>
-            <span className="status-dot"></span>
-            {miniOnline ? 'Mini Online' : 'Mini Offline'}
-            {Notification.permission === 'default' && (
-              <button 
-                className="enable-notifs-btn"
-                onClick={() => Notification.requestPermission().then(() => window.location.reload())}
-                title="Enable browser notifications"
-              >
-                🔔
-              </button>
-            )}
-          </div>
-        )}
+        <div className="discussion-header-right">
+          {isAvni && (
+            <div className={`mini-status-badge ${miniOnline ? 'online' : 'offline'}`}>
+              <span className="status-dot"></span>
+              {miniOnline ? 'Mini Online' : 'Mini Offline'}
+              {Notification.permission === 'default' && (
+                <button
+                  className="enable-notifs-btn"
+                  onClick={() => Notification.requestPermission().then(() => window.location.reload())}
+                  title="Enable browser notifications"
+                >
+                  🔔
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {toast && (
@@ -424,7 +424,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           <button
             type="button"
             className="discussion-kick-btn"
-            onClick={() => socketRef.current && socketRef.current.emit('force-logout')}
+            onClick={() => socket && socket.emit('force-logout')}
             title="Force logout Mini"
             id="kick-btn"
           >
@@ -472,6 +472,11 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           </svg>
         </button>
       </form>
+
+      <YouTubePlayer 
+        videoId={syncedVideoId} 
+        onTouchClose={() => setSyncedVideoId(null)} 
+      />
     </div>
   )
 }

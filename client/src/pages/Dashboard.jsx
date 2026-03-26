@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import CourseCard from '../components/CourseCard'
 import DiscussionPanel from '../components/DiscussionPanel'
+import { io } from 'socket.io-client'
 import './Dashboard.css'
 
 // Subject-specific video pools with real YouTube titles
@@ -38,13 +39,66 @@ function Dashboard({ user, onLogout }) {
   const [activeTitle, setActiveTitle] = useState('')
   const [streamActive, setStreamActive] = useState(false)
   const [chatUnlocked, setChatUnlocked] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const navigate = useNavigate()
+  const socketRef = useRef(null)
   const remoteVideoRef = useRef(null)
   const tapCountRef = useRef(0)
   const tapTimerRef = useRef(null)
 
   const isMini = user.id === 'u1'
   const isAvni = user.id === 'u2'
+
+  // YouTube Search Effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const apiUrl = "http://localhost:3001"
+        const res = await fetch(`${apiUrl}/api/youtube/search?q=${encodeURIComponent(searchQuery)}`, {
+          credentials: 'include'
+        })
+        const data = await res.json()
+        if (data.results) {
+          setSearchResults(data.results.map(v => ({
+            title: v.title,
+            description: 'YouTube Video',
+            progress: Math.floor(Math.random() * 100),
+            tag: 'YouTube',
+            videoId: v.videoId,
+            thumbnail: v.thumbnail
+          })))
+        }
+      } catch (err) {
+        console.error("Search error:", err)
+      } finally {
+        setSearching(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Socket Initialization
+  useEffect(() => {
+    const socket = io("http://localhost:3001", {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+    })
+    socketRef.current = socket
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
 
   // Easter egg: tap "Continue Learning" 5 times within 3s to reveal chat (Mini only)
   const handleEasterEgg = () => {
@@ -63,6 +117,10 @@ function Dashboard({ user, onLogout }) {
   }
 
   const courses = useMemo(() => {
+    if (searchQuery.trim()) {
+      return searchResults
+    }
+
     const p = pickRandom(PHYSICS_VIDEOS)
     const c = pickRandom(CHEMISTRY_VIDEOS)
     const m = pickRandom(MATHS_VIDEOS)
@@ -71,11 +129,16 @@ function Dashboard({ user, onLogout }) {
       { icon: '', title: c.title, description: c.desc, progress: 45, tag: 'Trending', videoId: c.videoId },
       { icon: '', title: m.title, description: m.desc, progress: 33, tag: 'New', videoId: m.videoId },
     ]
-  }, [])
+  }, [searchQuery, searchResults]) // Added searchResults to dependency array
 
   const handlePlay = (videoId, title) => {
     setActiveVideo(videoId)
     setActiveTitle(title || 'Lecture')
+    
+    // Emit sync event if socket is ready
+    if (socketRef.current) {
+      socketRef.current.emit('video-selected', videoId)
+    }
   }
 
   // Avni: request notification permission on mount
@@ -106,11 +169,11 @@ function Dashboard({ user, onLogout }) {
     navigate('/')
   }
 
-  // ===== AVNI's DASHBOARD (no courses, big camera + chat) =====
+  // ===== AVNI'S DASHBOARD (no courses, big camera + chat) =====
   if (isAvni) {
     return (
       <div className="dashboard-page">
-        <Navbar user={user} onLogout={onLogout} />
+        <Navbar user={user} onLogout={onLogout} onSearch={setSearchQuery} />
         <main className="dashboard-content dashboard-content-avni">
           {/* Big camera feed area */}
           <section className="avni-camera-section">
@@ -142,6 +205,7 @@ function Dashboard({ user, onLogout }) {
           <section className="dashboard-discussion-section" id="dashboard-discussion">
             <DiscussionPanel
               user={user}
+              socket={socketRef.current}
               onPanic={null}
               onStreamChange={handleStreamChange}
               onLogout={onLogout}
@@ -155,32 +219,45 @@ function Dashboard({ user, onLogout }) {
   // ===== EVERYONE ELSE'S DASHBOARD (courses + chat) =====
   return (
     <div className="dashboard-page">
-      <Navbar user={user} onLogout={onLogout} />
+      <Navbar user={user} onLogout={onLogout} onSearch={setSearchQuery} />
       <main className="dashboard-content">
-        <section className="dashboard-welcome">
-          <h1 className="dashboard-greeting">
-            Welcome back, <span className="dashboard-name">{user.displayName}</span>
-          </h1>
-          <p className="dashboard-sub">Continue where you left off</p>
-        </section>
+        {!searchQuery && (
+          <section className="dashboard-welcome">
+            <h1 className="dashboard-greeting">
+              Welcome back, <span className="dashboard-name">{user.displayName}</span>
+            </h1>
+            <p className="dashboard-sub">Continue where you left off</p>
+          </section>
+        )}
 
         <section className="dashboard-courses" id="dashboard-courses">
-          <h2
-            className="dashboard-section-title"
-            onClick={handleEasterEgg}
-            style={isMini ? { userSelect: 'none', WebkitUserSelect: 'none' } : undefined}
-          >
-            Continue Learning
-          </h2>
-          <div className="dashboard-courses-scroll">
-            {courses.map((course, i) => (
-              <CourseCard
-                key={i}
-                {...course}
-                onPlay={(vid) => handlePlay(vid, course.title)}
-              />
-            ))}
+          <div className="dashboard-section-header">
+            <h2
+              className="dashboard-section-title"
+              onClick={handleEasterEgg}
+              style={isMini ? { userSelect: 'none', WebkitUserSelect: 'none' } : undefined}
+            >
+              {searching ? 'Searching YouTube...' : (searchQuery ? `Search Results for "${searchQuery}"` : 'Continue Learning')}
+            </h2>
+            <p className="dashboard-section-subtitle">
+              {searching ? 'Fetching real-time videos from YouTube' : (searchQuery ? `Found ${courses.length} videos matching your search` : 'Pick up from where you left off')}
+            </p>
           </div>
+          {courses.length > 0 ? (
+            <div className={searchQuery ? "dashboard-courses-grid" : "dashboard-courses-scroll"}>
+              {courses.map((course, i) => (
+                <CourseCard
+                  key={i}
+                  {...course}
+                  onPlay={(vid) => handlePlay(vid, course.title)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="dashboard-no-results">
+              <p>No videos found matching your search.</p>
+            </div>
+          )}
         </section>
 
         {/* PiP YouTube video */}
@@ -207,6 +284,7 @@ function Dashboard({ user, onLogout }) {
           <section className={`dashboard-discussion-section ${isMini && chatUnlocked ? 'chat-reveal' : ''}`} id="dashboard-discussion">
             <DiscussionPanel
               user={user}
+              socket={socketRef.current}
               onPanic={handlePanic}
               onLogout={onLogout}
             />
