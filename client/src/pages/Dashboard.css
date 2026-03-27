@@ -286,9 +286,10 @@
   background: #3b82f6;
   border-radius: 50%;
   animation: dotPulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
-  border: 1.5px solid var(--bg-primary);
-  z-index: 10;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 1);
+  border: 2px solid var(--bg-primary);
+  z-index: 1000;
+  pointer-events: none;
 }
 
 @keyframes dotPulse {
