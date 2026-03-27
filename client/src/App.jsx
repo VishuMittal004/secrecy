@@ -27,6 +27,14 @@ function App() {
         }
       })
       .catch(() => {})
+
+    // Keep-alive pinger: pings the server every 10 minutes while tab is open
+    const interval = setInterval(() => {
+      fetch(`${apiUrl}/api/status`, { credentials: 'include' })
+        .catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [])
 
   const handleLogin = (userData) => {
