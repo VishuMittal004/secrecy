@@ -13,6 +13,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [miniOnline, setMiniOnline] = useState(false)
   const [toast, setToast] = useState(null)
   const [lightboxImage, setLightboxImage] = useState(null)
+  const [replyTo, setReplyTo] = useState(null)
   const navigate = useNavigate()
   const socketRef = useRef(null)
   const listEndRef = useRef(null)
@@ -280,9 +281,14 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     e.preventDefault()
     const content = input.trim()
     if ((!content && !pendingImage) || !socketRef.current) return
-    socketRef.current.emit('submit-entry', { content, image: pendingImage })
+    socketRef.current.emit('submit-entry', {
+      content,
+      image: pendingImage,
+      replyTo: replyTo ? { id: replyTo.id, author: replyTo.author, content: replyTo.content, image: replyTo.image } : null,
+    })
     setInput('')
     setPendingImage(null)
+    setReplyTo(null)
   }
 
   const handleImagePick = () => {
@@ -367,24 +373,53 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             <p>No doubts posted yet. Be the first to ask!</p>
           </div>
         ) : (
-          entries.map((entry) => (
+          entries.map((entry) => {
+            const isOwn = entry.authorId === user.id
+            return (
             <div
               key={entry.id}
-              className={`discussion-entry ${entry.authorId === user.id ? 'discussion-entry-own' : ''}`}
+              className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
               id={`entry-${entry.id}`}
             >
-              <div
-                className="discussion-entry-avatar"
-                style={{ background: getAvatarColor(entry.author) }}
-              >
+              {/* Avatar — only show on other side */}
+                {!isOwn && (
+                  <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
                 {entry.author[0]}
               </div>
-              <div className="discussion-entry-body">
-                <div className="discussion-entry-meta">
-                  <span className="discussion-entry-author">{entry.author}</span>
-                  <span className="discussion-entry-time">{formatTime(entry.timestamp)}</span>
+              )}
+
+                <div className="discussion-bubble-wrap">
+                  {/* Reply button on hover */}
+                  <button
+                    className="discussion-reply-btn"
+                    onClick={() => setReplyTo(entry)}
+                    title="Reply"
+                    aria-label="Reply"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 17 4 12 9 7" />
+                      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                    </svg>
+                  </button>
+
+                  <div className={`discussion-bubble ${isOwn ? 'discussion-bubble-own' : 'discussion-bubble-other'}`}>
+                    {/* Sender name — only for others */}
+                    {!isOwn && <span className="discussion-bubble-author">{entry.author}</span>}
+
+                    {/* Quoted reply preview */}
+                    {entry.replyTo && (
+                      <div className="discussion-reply-quote">
+                        <span className="discussion-reply-quote-author">{entry.replyTo.author}</span>
+                        {entry.replyTo.image && !entry.replyTo.content && (
+                          <span className="discussion-reply-quote-text">📷 Photo</span>
+                        )}
+                        {entry.replyTo.content && (
+                          <span className="discussion-reply-quote-text">{entry.replyTo.content.slice(0, 80)}{entry.replyTo.content.length > 80 ? '…' : ''}</span>
+                        )}
                 </div>
-                {entry.content && <p className="discussion-entry-content">{entry.content}</p>}
+                )}
+
+                    {entry.content && <p className="discussion-bubble-text">{entry.content}</p>}
                 {entry.image && (
                   <img
                     src={entry.image}
@@ -393,22 +428,41 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                     onClick={() => setLightboxImage(entry.image)}
                   />
                 )}
+                <span className="discussion-bubble-time">{formatTime(entry.timestamp)}</span>
+                  </div>
+                </div>
+
+                {/* Own avatar on right */}
+                {isOwn && (
+                  <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
+                    {entry.author[0]}
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            )
+          })
         )}
         <div ref={listEndRef} />
       </div>
+
+      {/* Reply preview bar */}
+      {replyTo && (
+        <div className="discussion-reply-bar">
+          <div className="discussion-reply-bar-content">
+            <span className="discussion-reply-bar-author">{replyTo.author}</span>
+            <span className="discussion-reply-bar-text">
+              {replyTo.image && !replyTo.content ? '📷 Photo' : replyTo.content?.slice(0, 60)}
+            </span>
+          </div>
+          <button className="discussion-reply-bar-close" onClick={() => setReplyTo(null)} aria-label="Cancel reply">×</button>
+        </div>
+      )}
 
       {/* Image preview strip */}
       {pendingImage && (
         <div className="discussion-image-preview">
           <img src={pendingImage} alt="Preview" className="discussion-image-thumb" />
-          <button
-            type="button"
-            className="discussion-image-remove"
-            onClick={() => setPendingImage(null)}
-          >x</button>
+          <button type="button" className="discussion-image-remove" onClick={() => setPendingImage(null)}>x</button>
         </div>
       )}
 
