@@ -22,6 +22,7 @@ const USERS = [
 ];
 
 // In-memory discussion entries
+const MAX_ENTRIES = 1000;
 const entries = [];
 
 // --- Middleware ---
@@ -48,7 +49,7 @@ let allowedOrigin = process.env.CORS_ORIGIN || allowedOrigins;
 
 // Robustly handle trailing slashes in environment variables to prevent CORS mismatches
 if (typeof allowedOrigin === 'string') {
-  allowedOrigin = allowedOrigin.replace(/\/$/, ""); 
+  allowedOrigin = allowedOrigin.replace(/\/$/, "");
 }
 
 app.use(
@@ -283,9 +284,9 @@ io.on("connection", (socket) => {
     };
     entries.push(entry);
 
-    // Keep last 200 entries in memory
-    if (entries.length > 200) {
-      entries.splice(0, entries.length - 200);
+    // Keep last entries in memory
+    if (entries.length > MAX_ENTRIES) {
+      entries.splice(0, entries.length - MAX_ENTRIES);
     }
 
     io.emit("new-entry", entry);
