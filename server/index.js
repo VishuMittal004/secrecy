@@ -280,6 +280,7 @@ io.on("connection", (socket) => {
       authorId: user.id,
       content: data.content || "",
       image: data.image || null,
+      replyTo: data.replyTo || null,
       timestamp: new Date().toISOString(),
     };
     entries.push(entry);
