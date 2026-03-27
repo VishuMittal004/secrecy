@@ -426,3 +426,60 @@
     padding: 0 var(--space-sm);
   }
 }
+/* === Image Lightbox === */
+.discussion-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: var(--space-lg);
+  animation: lbFadeIn 0.2s ease;
+  cursor: zoom-out;
+}
+
+@keyframes lbFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.discussion-lightbox-img {
+  max-width: 90vw;
+  max-height: 88vh;
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  object-fit: contain;
+  animation: lbZoom 0.25s ease;
+  cursor: default;
+}
+
+@keyframes lbZoom {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.discussion-lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  backdrop-filter: blur(6px);
+  z-index: 301;
+  cursor: pointer;
+}
+
+.discussion-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
