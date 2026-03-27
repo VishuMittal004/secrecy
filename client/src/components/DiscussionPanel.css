@@ -156,13 +156,12 @@
   font-size: 0.85rem;
 }
 
-/* Individual entry */
+/* === Chat Bubbles === */
 .discussion-entry {
   display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 2px var(--space-sm);
   animation: entryFade 0.25s ease;
 }
 
@@ -171,71 +170,223 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.discussion-entry:hover {
-  background: rgba(26, 115, 232, 0.03);
+/* Own messages: flip to right */
+.discussion-entry-own {
+  flex-direction: row-reverse;
 }
 
 .discussion-entry-avatar {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  margin-top: 2px;
-}
-
-.discussion-entry-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.discussion-entry-meta {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
   margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
-.discussion-entry-author {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--pw-blue);
+/* Bubble wrap holds the reply btn + bubble */
+.discussion-bubble-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 72%;
 }
 
-.discussion-entry-own .discussion-entry-author {
-  color: var(--pw-orange);
+.discussion-entry-own .discussion-bubble-wrap {
+  flex-direction: row-reverse;
 }
 
-.discussion-entry-time {
-  font-size: 0.68rem;
+/* Reply button — hidden until hover */
+.discussion-reply-btn {
+  opacity: 0;
+  pointer-events: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s, background 0.15s;
+  cursor: pointer;
 }
 
-.discussion-entry-content {
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  line-height: 1.5;
+.discussion-entry:hover .discussion-reply-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.discussion-reply-btn:hover {
+  background: var(--accent-glow);
+  color: var(--pw-blue);
+  border-color: var(--pw-blue);
+}
+
+/* The actual speech bubble */
+.discussion-bubble {
+  padding: 9px 13px 6px;
+  border-radius: 16px;
+  position: relative;
   word-break: break-word;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-/* Shared images in entries */
+.discussion-bubble-other {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.discussion-bubble-own {
+  background: linear-gradient(135deg, var(--pw-blue), #2a8af6);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.discussion-bubble-author {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pw-blue);
+  margin-bottom: 3px;
+}
+
+.discussion-bubble-text {
+  font-size: 0.85rem;
+  /* color: var(--text-primary); */
+  line-height: 1.5;
+  margin: 0;
+}
+
+.discussion-bubble-own .discussion-bubble-text {
+  color: white;
+}
+
+.discussion-bubble-time {
+  display: block;
+  font-size: 0.62rem;
+  margin-top: 4px;
+  text-align: right;
+  opacity: 0.6;
+}
+
+.discussion-bubble-own .discussion-bubble-time {
+  color: rgba(255,255,255,0.75);
+}
+
+/* Reply quote inside bubble */
+.discussion-reply-quote {
+  display: flex;
+  flex-direction: column;
+  border-left: 3px solid rgba(255,255,255,0.5);
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+}
+
+.discussion-bubble-other .discussion-reply-quote {
+  border-left-color: var(--pw-blue);
+  background: var(--accent-glow);
+}
+
+.discussion-reply-quote-author {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--pw-blue);
+  margin-bottom: 1px;
+}
+
+.discussion-bubble-own .discussion-reply-quote-author {
+  color: rgba(255,255,255,0.9);
+}
+
+.discussion-reply-quote-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discussion-bubble-own .discussion-reply-quote-text {
+  color: rgba(255,255,255,0.8);
+}
+
+/* Shared images in bubbles */
 .discussion-entry-image {
-  max-width: 220px;
-  max-height: 200px;
+  max-width: 200px;
+  max-height: 180px;
   border-radius: var(--radius-sm);
   margin-top: 6px;
   cursor: pointer;
-  border: 1px solid var(--border);
+  display: block;
   transition: transform 0.15s ease;
 }
 
 .discussion-entry-image:hover {
   transform: scale(1.02);
+}
+
+/* Reply bar above input */
+.discussion-reply-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: var(--accent-glow);
+  border-top: 2px solid var(--pw-blue);
+  gap: var(--space-sm);
+}
+
+.discussion-reply-bar-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.discussion-reply-bar-author {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pw-blue);
+}
+
+.discussion-reply-bar-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discussion-reply-bar-close {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.discussion-reply-bar-close:hover {
+  background: var(--text-muted);
+  color: white;
 }
 
 /* Image preview strip above input */
