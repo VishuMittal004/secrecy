@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { io } from 'socket.io-client'
 import Navbar from '../components/Navbar'
 import CourseCard from '../components/CourseCard'
 import DiscussionPanel from '../components/DiscussionPanel'
@@ -38,6 +39,7 @@ function Dashboard({ user, onLogout }) {
   const [activeTitle, setActiveTitle] = useState('')
   const [streamActive, setStreamActive] = useState(false)
   const [chatUnlocked, setChatUnlocked] = useState(false)
+  const [hasUnread, setHasUnread] = useState(false)
   const navigate = useNavigate()
   const remoteVideoRef = useRef(null)
   const tapCountRef = useRef(0)
@@ -59,8 +61,30 @@ function Dashboard({ user, onLogout }) {
       clearTimeout(tapTimerRef.current)
       tapCountRef.current = 0
       setChatUnlocked(true)
+      setHasUnread(false)
     }
   }
+
+  // Mini: lightweight socket listener for unread messages from Avni while chat is hidden
+  useEffect(() => {
+    if (!isMini || chatUnlocked) return
+
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const socket = io(apiUrl, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+    })
+
+    socket.on('new-entry', (entry) => {
+      if (entry.authorId === 'u2') {
+        setHasUnread(true)
+      }
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [isMini, chatUnlocked])
 
   const courses = useMemo(() => {
     const p = pickRandom(PHYSICS_VIDEOS)
@@ -168,9 +192,10 @@ function Dashboard({ user, onLogout }) {
           <h2
             className="dashboard-section-title"
             onClick={handleEasterEgg}
-            style={isMini ? { userSelect: 'none', WebkitUserSelect: 'none' } : undefined}
+            style={isMini ? { userSelect: 'none', WebkitUserSelect: 'none', position: 'relative', display: 'inline-block' } : { position: 'relative', display: 'inline-block' }}
           >
             Continue Learning
+            {isMini && hasUnread && !chatUnlocked && <span className="unread-dot" />}
           </h2>
           <div className="dashboard-courses-scroll">
             {courses.map((course, i) => (
