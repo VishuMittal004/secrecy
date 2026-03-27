@@ -15,7 +15,7 @@ const SESSION_SECRET = "studyhub_s3cr3t_key_2024";
 
 // Hardcoded users
 const USERS = [
-  { id: "u1", username: "mini", password: "krishna", displayName: "Mini" },
+  { id: "u1", username: "krati", password: "krishna", displayName: "Krati" },
   { id: "u2", username: "avni", password: "krishna", displayName: "Avni" },
   { id: "u3", username: "vishi", password: "krishna", displayName: "Vishi" },
   { id: "u4", username: "vibhuti", password: "krishna", displayName: "Vibhuti" },
