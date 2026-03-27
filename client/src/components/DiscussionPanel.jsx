@@ -390,7 +390,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                     src={entry.image}
                     alt="Shared image"
                     className="discussion-entry-image"
-                    onClick={() => window.open(entry.image, '_blank')}
+                    onClick={() => setLightboxImage(entry.image)}
                   />
                 )}
               </div>
