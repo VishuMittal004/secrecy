@@ -153,7 +153,10 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     const socket = io(apiUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
     })
     socketRef.current = socket
 
@@ -264,6 +267,13 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     scrollToBottom()
   }, [entries])
+
+  // Refresh timestamps every 30 seconds
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleSubmit = (e) => {
     e.preventDefault()
