@@ -12,6 +12,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [pendingImage, setPendingImage] = useState(null)
   const [miniOnline, setMiniOnline] = useState(false)
   const [toast, setToast] = useState(null)
+  const [lightboxImage, setLightboxImage] = useState(null)
   const navigate = useNavigate()
   const socketRef = useRef(null)
   const listEndRef = useRef(null)
@@ -482,6 +483,18 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           </svg>
         </button>
       </form>
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div className="discussion-lightbox-overlay" onClick={() => setLightboxImage(null)}>
+          <button className="discussion-lightbox-close" onClick={() => setLightboxImage(null)}>×</button>
+          <img
+            src={lightboxImage}
+            alt="Full size"
+            className="discussion-lightbox-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
