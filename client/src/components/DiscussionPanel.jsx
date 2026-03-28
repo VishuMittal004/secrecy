@@ -270,11 +270,18 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     scrollToBottom()
   }, [entries])
 
-  // Refresh timestamps every 30 seconds
-  const [, setTick] = useState(0)
+  // Refresh timestamps every 30 seconds + on tab focus
+  const [, setTick] = useState(Date.now())
   useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 30000)
-    return () => clearInterval(timer)
+    const timer = setInterval(() => setTick(Date.now()), 30000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setTick(Date.now())
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   const handleSubmit = (e) => {
