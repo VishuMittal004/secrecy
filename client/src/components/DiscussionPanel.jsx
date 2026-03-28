@@ -187,7 +187,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     // Mini: listen for force-logout from Avni
     if (isMini) {
       socket.on('force-logout', () => {
-        sessionStorage.removeItem('studyhub_user')
+        localStorage.removeItem('studyhub_user')
+        localStorage.removeItem('studyhub_user_ts')
         if (onLogout) onLogout()
         navigate('/')
       })
