@@ -7,9 +7,18 @@ import VideoSearch from './pages/VideoSearch'
 import './App.css'
 
 function App() {
+  const SESSION_TTL = 8 * 60 * 60 * 1000 // 8 hours
+
   const [user, setUser] = useState(() => {
-    const saved = sessionStorage.getItem('studyhub_user')
-    return saved ? JSON.parse(saved) : null
+    const saved = localStorage.getItem('studyhub_user')
+    const savedAt = localStorage.getItem('studyhub_user_ts')
+    if (saved && savedAt && (Date.now() - Number(savedAt)) < SESSION_TTL) {
+      return JSON.parse(saved)
+    }
+    // Expired or missing — clear it
+    localStorage.removeItem('studyhub_user')
+    localStorage.removeItem('studyhub_user_ts')
+    return null
   })
 
   useEffect(() => {
@@ -20,10 +29,12 @@ function App() {
       .then(data => {
         if (data.authenticated) {
           setUser(data.user)
-          sessionStorage.setItem('studyhub_user', JSON.stringify(data.user))
+          localStorage.setItem('studyhub_user', JSON.stringify(data.user))
+          localStorage.setItem('studyhub_user_ts', String(Date.now()))
         } else {
           setUser(null)
-          sessionStorage.removeItem('studyhub_user')
+          localStorage.removeItem('studyhub_user')
+          localStorage.removeItem('studyhub_user_ts')
         }
       })
       .catch(() => {})
@@ -39,14 +50,16 @@ function App() {
 
   const handleLogin = (userData) => {
     setUser(userData)
-    sessionStorage.setItem('studyhub_user', JSON.stringify(userData))
+    localStorage.setItem('studyhub_user', JSON.stringify(userData))
+    localStorage.setItem('studyhub_user_ts', String(Date.now()))
   }
 
   const handleLogout = async () => {
     const apiUrl = import.meta.env.VITE_API_URL || ''
     await fetch(`${apiUrl}/api/reset`, { method: 'POST', credentials: 'include' })
     setUser(null)
-    sessionStorage.removeItem('studyhub_user')
+    localStorage.removeItem('studyhub_user')
+    localStorage.removeItem('studyhub_user_ts')
   }
 
   return (
