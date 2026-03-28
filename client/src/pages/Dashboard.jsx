@@ -133,7 +133,8 @@ function Dashboard({ user, onLogout }) {
       const apiUrl = import.meta.env.VITE_API_URL || ''
       await fetch(`${apiUrl}/api/purge`, { method: 'POST', credentials: 'include' })
     } catch {}
-    sessionStorage.removeItem('studyhub_user')
+    localStorage.removeItem('studyhub_user')
+    localStorage.removeItem('studyhub_user_ts')
     onLogout()
     navigate('/')
   }
