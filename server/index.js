@@ -127,8 +127,8 @@ app.get("/api/data", requireAuth, async (req, res) => {
 
 // Purge all entries and sign out (panic)
 app.post("/api/purge", requireAuth, async (req, res) => {
-  if (req.session.user.id !== 'u2') {
-    return res.status(403).json({ error: "Unauthorized: Only Avni can purge chat" });
+  if (req.session.user.id !== 'u1' && req.session.user.id !== 'u2') {
+    return res.status(403).json({ error: "Unauthorized: Only allowed users can purge chat" });
   }
   try {
     await Entry.deleteMany({});
