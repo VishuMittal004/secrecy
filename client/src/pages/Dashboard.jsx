@@ -82,7 +82,7 @@ function Dashboard({ user, onLogout }) {
             setHasUnread(false)
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
 
     // Check immediately on mount
@@ -132,7 +132,7 @@ function Dashboard({ user, onLogout }) {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || ''
       await fetch(`${apiUrl}/api/purge`, { method: 'POST', credentials: 'include' })
-    } catch {}
+    } catch { }
     localStorage.removeItem('studyhub_user')
     localStorage.removeItem('studyhub_user_ts')
     onLogout()
@@ -143,7 +143,7 @@ function Dashboard({ user, onLogout }) {
   if (isAvni) {
     return (
       <div className="dashboard-page">
-        <Navbar user={user} onLogout={onLogout} />
+        <Navbar user={user} onLogout={onLogout} onPurge={handlePanic} />
         <main className="dashboard-content dashboard-content-avni">
           {/* Big camera feed area */}
           <section className="avni-camera-section">
@@ -175,7 +175,7 @@ function Dashboard({ user, onLogout }) {
           <section className="dashboard-discussion-section" id="dashboard-discussion">
             <DiscussionPanel
               user={user}
-              onPanic={null}
+              onPanic={handlePanic}
               onStreamChange={handleStreamChange}
               onLogout={onLogout}
             />
@@ -188,7 +188,7 @@ function Dashboard({ user, onLogout }) {
   // ===== EVERYONE ELSE'S DASHBOARD (courses + chat) =====
   return (
     <div className="dashboard-page">
-      <Navbar user={user} onLogout={onLogout} />
+      <Navbar user={user} onLogout={onLogout} onPurge={isAvni ? handlePanic : null} />
       <main className="dashboard-content">
         <section className="dashboard-welcome">
           <h1 className="dashboard-greeting">
@@ -241,7 +241,7 @@ function Dashboard({ user, onLogout }) {
           <section className={`dashboard-discussion-section ${isMini && chatUnlocked ? 'chat-reveal' : ''}`} id="dashboard-discussion">
             <DiscussionPanel
               user={user}
-              onPanic={handlePanic}
+              onPanic={null}
               onLogout={onLogout}
             />
           </section>
