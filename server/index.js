@@ -1,9 +1,12 @@
 const express = require("express");
+require("dotenv").config();
+const mongoose = require("mongoose");
 const http = require("http");
 const { Server } = require("socket.io");
 const session = require("express-session");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
+const Entry = require("./models/Entry");
 
 const app = express();
 app.set('trust proxy', 1); // Required for Render's reverse proxy — lets Express see HTTPS so secure cookies work
@@ -13,6 +16,13 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 const SESSION_SECRET = "studyhub_s3cr3t_key_2024";
 
+// --- Database Connection ---
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/studyhub";
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.log("[Database] Connected to MongoDB"))
+  .catch((err) => console.error("[Database] Connection error:", err));
+
 // Hardcoded users
 const USERS = [
   { id: "u1", username: "krati", password: "krishna", displayName: "Krati" },
@@ -20,10 +30,6 @@ const USERS = [
   { id: "u3", username: "vishi", password: "krishna", displayName: "Vishi" },
   { id: "u4", username: "vibhuti", password: "krishna", displayName: "Vibhuti" },
 ];
-
-// In-memory discussion entries
-const MAX_ENTRIES = 1000;
-const entries = [];
 
 // --- Middleware ---
 const sessionOptions = {
@@ -109,19 +115,30 @@ app.post("/api/reset", (req, res) => {
 });
 
 // Get discussion entries (protected)
-app.get("/api/data", requireAuth, (req, res) => {
-  return res.json({ entries });
+app.get("/api/data", requireAuth, async (req, res) => {
+  try {
+    const entries = await Entry.find().sort({ timestamp: 1 }).limit(1000);
+    return res.json({ entries });
+  } catch (err) {
+    console.error("[API] Error fetching entries:", err);
+    return res.status(500).json({ error: "Failed to fetch entries" });
+  }
 });
 
 // Purge all entries and sign out (panic)
-app.post("/api/purge", requireAuth, (req, res) => {
-  entries.length = 0;
-  io.emit("entries-cleared");
-  req.session.destroy((err) => {
-    if (err) return res.status(500).json({ error: "Failed" });
-    res.clearCookie("connect.sid");
-    return res.json({ success: true });
-  });
+app.post("/api/purge", requireAuth, async (req, res) => {
+  try {
+    await Entry.deleteMany({});
+    io.emit("entries-cleared");
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ error: "Failed" });
+      res.clearCookie("connect.sid");
+      return res.json({ success: true });
+    });
+  } catch (err) {
+    console.error("[API] Error purging entries:", err);
+    return res.status(500).json({ error: "Failed to purge entries" });
+  }
 });
 
 // --- YouTube Search Proxy (public) ---
@@ -273,24 +290,20 @@ io.on("connection", (socket) => {
   });
 
   // Handle new discussion entry (text and/or image)
-  socket.on("submit-entry", (data) => {
-    const entry = {
-      id: uuidv4(),
-      author: user.displayName,
-      authorId: user.id,
-      content: data.content || "",
-      image: data.image || null,
-      replyTo: data.replyTo || null,
-      timestamp: new Date().toISOString(),
-    };
-    entries.push(entry);
+  socket.on("submit-entry", async (data) => {
+    try {
+      const entry = await Entry.create({
+        author: user.displayName,
+        authorId: user.id,
+        content: data.content || "",
+        image: data.image || null,
+        replyTo: data.replyTo || null,
+      });
 
-    // Keep last entries in memory
-    if (entries.length > MAX_ENTRIES) {
-      entries.splice(0, entries.length - MAX_ENTRIES);
+      io.emit("new-entry", entry);
+    } catch (err) {
+      console.error("[Socket] Error creating entry:", err);
     }
-
-    io.emit("new-entry", entry);
   });
 
   socket.on("disconnect", () => {
