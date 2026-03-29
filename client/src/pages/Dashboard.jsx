@@ -143,7 +143,7 @@ function Dashboard({ user, onLogout }) {
   if (isAvni) {
     return (
       <div className="dashboard-page">
-        <Navbar user={user} onLogout={onLogout} onPurge={handlePanic} />
+        <Navbar user={user} onLogout={onLogout} />
         <main className="dashboard-content dashboard-content-avni">
           {/* Big camera feed area */}
           <section className="avni-camera-section">
@@ -188,7 +188,7 @@ function Dashboard({ user, onLogout }) {
   // ===== EVERYONE ELSE'S DASHBOARD (courses + chat) =====
   return (
     <div className="dashboard-page">
-      <Navbar user={user} onLogout={onLogout} onPurge={isAvni ? handlePanic : null} />
+      <Navbar user={user} onLogout={onLogout} />
       <main className="dashboard-content">
         <section className="dashboard-welcome">
           <h1 className="dashboard-greeting">
@@ -241,7 +241,7 @@ function Dashboard({ user, onLogout }) {
           <section className={`dashboard-discussion-section ${isMini && chatUnlocked ? 'chat-reveal' : ''}`} id="dashboard-discussion">
             <DiscussionPanel
               user={user}
-              onPanic={null}
+              onPanic={handlePanic}
               onLogout={onLogout}
             />
           </section>
