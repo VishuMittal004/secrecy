@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import './Navbar.css'
 
-function Navbar({ user, onLogout }) {
+function Navbar({ user, onLogout, onPurge }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
@@ -74,6 +74,18 @@ function Navbar({ user, onLogout }) {
                   <button className="navbar-menu-item" onClick={() => { setMenuOpen(false); navigate('/') }}>
                     Home
                   </button>
+                  {onPurge && (
+                    <>
+                      <div className="navbar-menu-divider" />
+                      <button 
+                        className="navbar-menu-item navbar-menu-purge" 
+                        onClick={() => { setMenuOpen(false); onPurge(); }}
+                        style={{ color: '#ff4d4d' }}
+                      >
+                         🔥 Emergency Purge
+                      </button>
+                    </>
+                  )}
                   {onLogout && (
                     <>
                       <div className="navbar-menu-divider" />
