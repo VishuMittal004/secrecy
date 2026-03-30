@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import './DiscussionPanel.css'
@@ -320,15 +320,30 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   }
 
   const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('en-IN', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    })
+  }
+
+  const getDateLabel = (timestamp) => {
     const date = new Date(timestamp)
     const now = new Date()
-    const diffMs = now - date
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    if (diffMins < 1) return 'just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    
+    // Set both to midnight to compare just the dates accurately
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    
+    const diffTime = today - targetDate
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 1) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays >= 2 && diffDays < 7) {
+      return date.toLocaleDateString('en-IN', { weekday: 'long' })
+    }
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   const getAvatarColor = (name) => {
@@ -381,14 +396,23 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             <p>No doubts posted yet. Be the first to ask!</p>
           </div>
         ) : (
-          entries.map((entry) => {
+          entries.map((entry, index) => {
             const isOwn = entry.authorId === user.id
+            const currentLabel = getDateLabel(entry.timestamp)
+            const prevLabel = index > 0 ? getDateLabel(entries[index - 1].timestamp) : null
+            const showDivider = currentLabel !== prevLabel
+
             return (
-            <div
-              key={entry.id}
-              className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
-              id={`entry-${entry.id}`}
-            >
+              <React.Fragment key={entry.id}>
+                {showDivider && (
+                  <div className="discussion-date-divider">
+                    <span>{currentLabel}</span>
+                  </div>
+                )}
+                <div
+                  className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
+                  id={`entry-${entry.id}`}
+                >
               {/* Avatar — only show on other side */}
                 {!isOwn && (
                   <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
@@ -446,7 +470,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                     {entry.author[0]}
                   </div>
                 )}
-              </div>
+                </div>
+              </React.Fragment>
             )
           })
         )}
