@@ -577,6 +577,27 @@
     padding: 0 var(--space-sm);
   }
 }
+/* === Date Dividers === */
+.discussion-date-divider {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--space-md) 0;
+  width: 100%;
+}
+
+.discussion-date-divider span {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
 /* === Image Lightbox === */
 .discussion-lightbox-overlay {
   position: fixed;
