@@ -117,7 +117,7 @@ app.post("/api/reset", (req, res) => {
 // Get discussion entries (protected)
 app.get("/api/data", requireAuth, async (req, res) => {
   try {
-    const entries = await Entry.find().sort({ timestamp: 1 }).limit(1000);
+    const entries = await Entry.find().sort({ timestamp: 1 });
     return res.json({ entries });
   } catch (err) {
     console.error("[API] Error fetching entries:", err);
