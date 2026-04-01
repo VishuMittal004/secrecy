@@ -71,13 +71,15 @@ function Dashboard({ user, onLogout }) {
     const apiUrl = import.meta.env.VITE_API_URL || ''
 
     const checkForMessages = () => {
-      fetch(`${apiUrl}/api/data`, { credentials: 'include' })
+      // ONLY fetch the single latest message to drastically reduce payload
+      fetch(`${apiUrl}/api/data?latest=1`, { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (data.entries && data.entries.length > 0) {
-            const lastEntry = data.entries[data.entries.length - 1]
+            // Note: server returns the newest entry in the array directly when limited to latest=1
+            const lastEntry = data.entries[data.entries.length - 1]; // or [0] depending on response, keep robust
             // Show dot if the last message is NOT from Krati
-            setHasUnread(lastEntry.authorId !== user.id)
+            setHasUnread(lastEntry && lastEntry.authorId !== user.id)
           } else {
             setHasUnread(false)
           }
