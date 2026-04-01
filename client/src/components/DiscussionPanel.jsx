@@ -14,6 +14,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [toast, setToast] = useState(null)
   const [lightboxImage, setLightboxImage] = useState(null)
   const [replyTo, setReplyTo] = useState(null)
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const socketRef = useRef(null)
   const listEndRef = useRef(null)
@@ -146,12 +147,14 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     // Fetch existing entries
     const apiUrl = import.meta.env.VITE_API_URL || ''
+    // Fetch all existing entries
     fetch(`${apiUrl}/api/data`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         if (data.entries) setEntries(data.entries)
       })
       .catch(() => { })
+      .finally(() => setLoading(false))
 
     const socket = io(apiUrl, {
       withCredentials: true,
@@ -391,7 +394,12 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       )}
 
       <div className="discussion-list" ref={listRef} id="discussion-entries">
-        {entries.length === 0 ? (
+        {loading ? (
+          <div className="discussion-loading-main">
+            <div className="chat-spinner"></div>
+            <p>Loading chats...</p>
+          </div>
+        ) : entries.length === 0 ? (
           <div className="discussion-empty">
             <p>No doubts posted yet. Be the first to ask!</p>
           </div>
