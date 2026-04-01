@@ -152,8 +152,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     // Fetch existing entries
     const apiUrl = import.meta.env.VITE_API_URL || ''
     
-    // PHASE 1: Instant Load (Latest 100)
-    fetch(`${apiUrl}/api/data?latest=100`, { credentials: 'include' })
+    // PHASE 1: Instant Load (Latest 30)
+    fetch(`${apiUrl}/api/data?latest=30`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         if (data.entries) {
@@ -162,9 +162,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           
           // PHASE 2: Background History Fetch
           isHistoryLoadingRef.current = true
-          // We wait just a second to let the UI settle, then fetch everything else
+          // We wait 3 seconds to let Phase 1 handle any images first
           setTimeout(() => {
-            fetch(`${apiUrl}/api/data?remainingAfter=100`, { credentials: 'include' })
+            fetch(`${apiUrl}/api/data?remainingAfter=30`, { credentials: 'include' })
               .then((res) => res.json())
               .then((historyData) => {
                 if (historyData.entries && historyData.entries.length > 0) {
