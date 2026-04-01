@@ -22,16 +22,21 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const pcRef = useRef(null)
   const localStreamRef = useRef(null)
   const isHistoryLoadingRef = useRef(false)
+  const isInitialLoadRef = useRef(true)
 
   const isMini = user.id === 'u1'
   const isAvni = user.id === 'u2'
 
   const scrollToBottom = (force = false) => {
+    const isInitial = isInitialLoadRef.current
+    if (isInitial && entries.length > 0) isInitialLoadRef.current = false
+
     // Prevent jerk-to-bottom if we are loading background history and not explicitly forced
-    if (!force && isHistoryLoadingRef.current) return;
+    // BUT allow the very first scroll when messages first appear
+    if (!force && !isInitial && isHistoryLoadingRef.current) return;
     
     if (listEndRef.current) {
-      listEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      listEndRef.current.scrollIntoView({ behavior: isInitial ? 'auto' : 'smooth' })
     }
   }
 
@@ -161,9 +166,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           setLoading(false)
           
           // PHASE 2: Background History Fetch
-          isHistoryLoadingRef.current = true
           // We wait 3 seconds to let Phase 1 handle any images first
           setTimeout(() => {
+            isHistoryLoadingRef.current = true
             fetch(`${apiUrl}/api/data?remainingAfter=30`, { credentials: 'include' })
               .then((res) => res.json())
               .then((historyData) => {
