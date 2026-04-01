@@ -1,13 +1,224 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import './DiscussionPanel.css'
 
 const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
+const formatTime = (timestamp) => {
+  return new Date(timestamp).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+const getDateLabel = (timestamp) => {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffTime = today - targetDate
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 1) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays >= 2 && diffDays < 7) {
+    return date.toLocaleDateString('en-IN', { weekday: 'long' })
+  }
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const getAvatarColor = (name) => {
+  const colors = [
+    'linear-gradient(135deg, #1a73e8, #4a9af5)',
+    'linear-gradient(135deg, #00c853, #69f0ae)',
+    'linear-gradient(135deg, #ff6d00, #ffa040)',
+    'linear-gradient(135deg, #e91e63, #f48fb1)',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
+// Memoized message item to prevent re-renders when other messages or typing state change
+const MessageItem = memo(({ entry, isOwn, showDivider, currentLabel, formatTime, getAvatarColor, onReply, onImageClick }) => {
+  return (
+    <React.Fragment>
+      {showDivider && (
+        <div className="discussion-date-divider">
+          <span>{currentLabel}</span>
+        </div>
+      )}
+      <div
+        className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
+        id={`entry-${entry.id}`}
+      >
+        {!isOwn && (
+          <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
+            {entry.author[0]}
+          </div>
+        )}
+
+        <div className="discussion-bubble-wrap">
+          <button
+            className="discussion-reply-btn"
+            onClick={() => onReply(entry)}
+            title="Reply"
+            aria-label="Reply"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 17 4 12 9 7" />
+              <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+            </svg>
+          </button>
+
+          <div className={`discussion-bubble ${isOwn ? 'discussion-bubble-own' : 'discussion-bubble-other'}`}>
+            {!isOwn && <span className="discussion-bubble-author">{entry.author}</span>}
+
+            {entry.replyTo && (
+              <div className="discussion-reply-quote">
+                <span className="discussion-reply-quote-author">{entry.replyTo.author}</span>
+                {entry.replyTo.image && !entry.replyTo.content && (
+                  <span className="discussion-reply-quote-text">📷 Photo</span>
+                )}
+                {entry.replyTo.content && (
+                  <span className="discussion-reply-quote-text">{entry.replyTo.content.slice(0, 80)}{entry.replyTo.content.length > 80 ? '…' : ''}</span>
+                )}
+              </div>
+            )}
+
+            {entry.content && <p className="discussion-bubble-text">{entry.content}</p>}
+            {entry.image && (
+              <img
+                src={entry.image}
+                alt="Shared image"
+                className="discussion-entry-image"
+                onClick={() => onImageClick(entry.image)}
+              />
+            )}
+            <span className="discussion-bubble-time">{formatTime(entry.timestamp)}</span>
+          </div>
+        </div>
+
+        {isOwn && (
+          <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
+            {entry.author[0]}
+          </div>
+        )}
+      </div>
+    </React.Fragment>
+  )
+})
+
+// Isolated input component to prevent re-rendering the whole panel on every keystroke
+const MessageInput = ({ connected, onSendMessage, onImagePick, onPanic, onKick, isAvni, miniOnline, replyTo, onCancelReply, pendingImage, onRemoveImage }) => {
+  const [input, setInput] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const content = input.trim()
+    if (!content && !pendingImage) return
+    onSendMessage(content)
+    setInput('')
+  }
+
+  return (
+    <div className="discussion-footer-area">
+      {replyTo && (
+        <div className="discussion-reply-bar">
+          <div className="discussion-reply-bar-content">
+            <span className="discussion-reply-bar-author">{replyTo.author}</span>
+            <span className="discussion-reply-bar-text">
+              {replyTo.image && !replyTo.content ? '📷 Photo' : replyTo.content?.slice(0, 60)}
+            </span>
+          </div>
+          <button className="discussion-reply-bar-close" onClick={onCancelReply} aria-label="Cancel reply">×</button>
+        </div>
+      )}
+
+      {pendingImage && (
+        <div className="discussion-image-preview">
+          <img src={pendingImage} alt="Preview" className="discussion-image-thumb" />
+          <button type="button" className="discussion-image-remove" onClick={onRemoveImage}>x</button>
+        </div>
+      )}
+
+      <form className="discussion-input-bar" onSubmit={handleSubmit} id="discussion-form">
+        {onPanic && (
+          <button
+            type="button"
+            className="discussion-panic-btn"
+            onClick={onPanic}
+            title="Emergency exit"
+            id="panic-btn"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        )}
+
+        {isAvni && miniOnline && (
+          <button
+            type="button"
+            className="discussion-kick-btn"
+            onClick={onKick}
+            title="Force logout Mini"
+            id="kick-btn"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
+            </svg>
+          </button>
+        )}
+
+        <button
+          type="button"
+          className="discussion-attach-btn"
+          onClick={onImagePick}
+          title="Attach image"
+          id="attach-btn"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </button>
+
+        <input
+          type="text"
+          className="discussion-input"
+          placeholder="Ask a doubt..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          maxLength={500}
+          id="discussion-input"
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          className="discussion-send-btn"
+          disabled={(!input.trim() && !pendingImage) || !connected}
+          id="discussion-submit"
+          aria-label="Post doubt"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  )
+}
+
 function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [entries, setEntries] = useState([])
-  const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [pendingImage, setPendingImage] = useState(null)
   const [miniOnline, setMiniOnline] = useState(false)
@@ -34,7 +245,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     // Prevent jerk-to-bottom if we are loading background history and not explicitly forced
     // BUT allow the very first scroll when messages first appear
     if (!force && !isInitial && isHistoryLoadingRef.current) return;
-    
+
     if (listEndRef.current) {
       listEndRef.current.scrollIntoView({ behavior: isInitial ? 'auto' : 'smooth' })
     }
@@ -156,36 +367,51 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     // Fetch existing entries
     const apiUrl = import.meta.env.VITE_API_URL || ''
-    
+
     // PHASE 1: Instant Load (Latest 15)
     fetch(`${apiUrl}/api/data?latest=15`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         if (data.entries) {
           setEntries(data.entries)
+          setEntries(data.entries)
           setLoading(false)
-          
-          // PHASE 2: Background History Fetch
-          // We wait 5 seconds to prioritize the initial 15 messages (and their images)
-          setTimeout(() => {
-            isHistoryLoadingRef.current = true
-            fetch(`${apiUrl}/api/data?remainingAfter=15`, { credentials: 'include' })
+
+          // PHASE 2: Wave Loading (Background Chunks)
+          // We wait 5 seconds initially, then fetch 50 messages every 2 seconds
+          const CHUNK_SIZE = 50
+          let currentSkip = 15
+
+          const loadNextWave = () => {
+            fetch(`${apiUrl}/api/data?skip=${currentSkip}&limit=${CHUNK_SIZE}`, { credentials: 'include' })
               .then((res) => res.json())
-              .then((historyData) => {
-                if (historyData.entries && historyData.entries.length > 0) {
+              .then((waveData) => {
+                if (waveData.entries && waveData.entries.length > 0) {
                   setEntries((prev) => {
-                    // Combine history with latest, merging duplicates by ID
-                    const latestIds = new Set(prev.map(e => e.id))
-                    const filteredHistory = historyData.entries.filter(e => !latestIds.has(e.id))
-                    return [...filteredHistory, ...prev]
+                    const existingIds = new Set(prev.map(e => e.id))
+                    const newEntries = waveData.entries.filter(e => !existingIds.has(e.id))
+                    // Merging backward: Wave Loading fetches older messages, so they go at the start
+                    return [...newEntries, ...prev]
                   })
+
+                  // If we got a full chunk, there's likely more history
+                  if (waveData.entries.length === CHUNK_SIZE) {
+                    currentSkip += CHUNK_SIZE
+                    isHistoryLoadingRef.current = true
+                    setTimeout(loadNextWave, 2000) // Next wave in 2 seconds
+                  } else {
+                    isHistoryLoadingRef.current = false
+                  }
+                } else {
+                  isHistoryLoadingRef.current = false
                 }
               })
-              .catch(() => { })
-              .finally(() => {
+              .catch(() => {
                 isHistoryLoadingRef.current = false
               })
-          }, 1000)
+          }
+
+          setTimeout(loadNextWave, 5000)
         }
       })
       .catch(() => { })
@@ -208,7 +434,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     socket.on('new-entry', (entry) => {
       setEntries((prev) => [...prev, entry])
-      
+
       // Force scroll to bottom on *new* message from socket
       setTimeout(() => scrollToBottom(true), 100)
 
@@ -326,19 +552,16 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     }
   }, [])
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const content = input.trim()
-    if ((!content && !pendingImage) || !socketRef.current) return
+  const handleSendMessage = useCallback((content) => {
+    if (!socketRef.current) return
     socketRef.current.emit('submit-entry', {
       content,
       image: pendingImage,
       replyTo: replyTo ? { id: replyTo.id, author: replyTo.author, content: replyTo.content, image: replyTo.image } : null,
     })
-    setInput('')
     setPendingImage(null)
     setReplyTo(null)
-  }
+  }, [pendingImage, replyTo])
 
   const handleImagePick = () => {
     const fileInput = document.createElement('input')
@@ -360,44 +583,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     fileInput.click()
   }
 
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-IN', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
-
-  const getDateLabel = (timestamp) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-
-    // Set both to midnight to compare just the dates accurately
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-
-    const diffTime = today - targetDate
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 1) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays >= 2 && diffDays < 7) {
-      return date.toLocaleDateString('en-IN', { weekday: 'long' })
-    }
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-  }
-
-  const getAvatarColor = (name) => {
-    const colors = [
-      'linear-gradient(135deg, #1a73e8, #4a9af5)',
-      'linear-gradient(135deg, #00c853, #69f0ae)',
-      'linear-gradient(135deg, #ff6d00, #ffa040)',
-      'linear-gradient(135deg, #e91e63, #f48fb1)',
-    ]
-    let hash = 0
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-    return colors[Math.abs(hash) % colors.length]
-  }
 
   return (
     <div className="discussion-panel" id="discussion-panel">
@@ -449,173 +634,36 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             const showDivider = currentLabel !== prevLabel
 
             return (
-              <React.Fragment key={entry.id}>
-                {showDivider && (
-                  <div className="discussion-date-divider">
-                    <span>{currentLabel}</span>
-                  </div>
-                )}
-                <div
-                  className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
-                  id={`entry-${entry.id}`}
-                >
-                  {/* Avatar — only show on other side */}
-                  {!isOwn && (
-                    <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
-                      {entry.author[0]}
-                    </div>
-                  )}
-
-                  <div className="discussion-bubble-wrap">
-                    {/* Reply button on hover */}
-                    <button
-                      className="discussion-reply-btn"
-                      onClick={() => setReplyTo(entry)}
-                      title="Reply"
-                      aria-label="Reply"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 17 4 12 9 7" />
-                        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-                      </svg>
-                    </button>
-
-                    <div className={`discussion-bubble ${isOwn ? 'discussion-bubble-own' : 'discussion-bubble-other'}`}>
-                      {/* Sender name — only for others */}
-                      {!isOwn && <span className="discussion-bubble-author">{entry.author}</span>}
-
-                      {/* Quoted reply preview */}
-                      {entry.replyTo && (
-                        <div className="discussion-reply-quote">
-                          <span className="discussion-reply-quote-author">{entry.replyTo.author}</span>
-                          {entry.replyTo.image && !entry.replyTo.content && (
-                            <span className="discussion-reply-quote-text">📷 Photo</span>
-                          )}
-                          {entry.replyTo.content && (
-                            <span className="discussion-reply-quote-text">{entry.replyTo.content.slice(0, 80)}{entry.replyTo.content.length > 80 ? '…' : ''}</span>
-                          )}
-                        </div>
-                      )}
-
-                      {entry.content && <p className="discussion-bubble-text">{entry.content}</p>}
-                      {entry.image && (
-                        <img
-                          src={entry.image}
-                          alt="Shared image"
-                          className="discussion-entry-image"
-                          onClick={() => setLightboxImage(entry.image)}
-                        />
-                      )}
-                      <span className="discussion-bubble-time">{formatTime(entry.timestamp)}</span>
-                    </div>
-                  </div>
-
-                  {/* Own avatar on right */}
-                  {isOwn && (
-                    <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
-                      {entry.author[0]}
-                    </div>
-                  )}
-                </div>
-              </React.Fragment>
+              <MessageItem
+                key={entry.id}
+                entry={entry}
+                isOwn={isOwn}
+                showDivider={showDivider}
+                currentLabel={currentLabel}
+                formatTime={formatTime}
+                getAvatarColor={getAvatarColor}
+                onReply={setReplyTo}
+                onImageClick={setLightboxImage}
+              />
             )
           })
         )}
         <div ref={listEndRef} />
       </div>
 
-      {/* Reply preview bar */}
-      {replyTo && (
-        <div className="discussion-reply-bar">
-          <div className="discussion-reply-bar-content">
-            <span className="discussion-reply-bar-author">{replyTo.author}</span>
-            <span className="discussion-reply-bar-text">
-              {replyTo.image && !replyTo.content ? '📷 Photo' : replyTo.content?.slice(0, 60)}
-            </span>
-          </div>
-          <button className="discussion-reply-bar-close" onClick={() => setReplyTo(null)} aria-label="Cancel reply">×</button>
-        </div>
-      )}
-
-      {/* Image preview strip */}
-      {pendingImage && (
-        <div className="discussion-image-preview">
-          <img src={pendingImage} alt="Preview" className="discussion-image-thumb" />
-          <button type="button" className="discussion-image-remove" onClick={() => setPendingImage(null)}>x</button>
-        </div>
-      )}
-
-      <form className="discussion-input-bar" onSubmit={handleSubmit} id="discussion-form">
-        {/* Panic button — only for Mini */}
-        {onPanic && (
-          <button
-            type="button"
-            className="discussion-panic-btn"
-            onClick={onPanic}
-            title="Emergency exit"
-            id="panic-btn"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-          </button>
-        )}
-
-        {/* Kick Mini button — only for Avni */}
-        {isAvni && miniOnline && (
-          <button
-            type="button"
-            className="discussion-kick-btn"
-            onClick={() => socketRef.current && socketRef.current.emit('force-logout')}
-            title="Force logout Mini"
-            id="kick-btn"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-              <line x1="12" y1="2" x2="12" y2="12" />
-            </svg>
-          </button>
-        )}
-
-        {/* Image attachment button */}
-        <button
-          type="button"
-          className="discussion-attach-btn"
-          onClick={handleImagePick}
-          title="Attach image"
-          id="attach-btn"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </button>
-
-        <input
-          type="text"
-          className="discussion-input"
-          placeholder="Ask a doubt..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          maxLength={500}
-          id="discussion-input"
-        />
-        <button
-          type="submit"
-          className="discussion-send-btn"
-          disabled={(!input.trim() && !pendingImage) || !connected}
-          id="discussion-submit"
-          aria-label="Post doubt"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
-      </form>
+      <MessageInput
+        connected={connected}
+        onSendMessage={handleSendMessage}
+        onImagePick={handleImagePick}
+        onPanic={onPanic}
+        onKick={() => socketRef.current && socketRef.current.emit('force-logout')}
+        isAvni={isAvni}
+        miniOnline={miniOnline}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+        pendingImage={pendingImage}
+        onRemoveImage={() => setPendingImage(null)}
+      />
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div className="discussion-lightbox-overlay" onClick={() => setLightboxImage(null)}>
