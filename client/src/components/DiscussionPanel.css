@@ -654,3 +654,27 @@
 .discussion-lightbox-close:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+/* === Loading Spinner === */
+.discussion-loading-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.chat-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(26, 115, 232, 0.1);
+  border-top-color: var(--pw-blue);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
