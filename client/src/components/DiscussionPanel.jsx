@@ -21,11 +21,15 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const listRef = useRef(null)
   const pcRef = useRef(null)
   const localStreamRef = useRef(null)
+  const isHistoryLoadingRef = useRef(false)
 
   const isMini = user.id === 'u1'
   const isAvni = user.id === 'u2'
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (force = false) => {
+    // Prevent jerk-to-bottom if we are loading background history and not explicitly forced
+    if (!force && isHistoryLoadingRef.current) return;
+    
     if (listEndRef.current) {
       listEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
@@ -147,11 +151,37 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     // Fetch existing entries
     const apiUrl = import.meta.env.VITE_API_URL || ''
-    // Fetch all existing entries
-    fetch(`${apiUrl}/api/data`, { credentials: 'include' })
+    
+    // PHASE 1: Instant Load (Latest 100)
+    fetch(`${apiUrl}/api/data?latest=100`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
-        if (data.entries) setEntries(data.entries)
+        if (data.entries) {
+          setEntries(data.entries)
+          setLoading(false)
+          
+          // PHASE 2: Background History Fetch
+          isHistoryLoadingRef.current = true
+          // We wait just a second to let the UI settle, then fetch everything else
+          setTimeout(() => {
+            fetch(`${apiUrl}/api/data?remainingAfter=100`, { credentials: 'include' })
+              .then((res) => res.json())
+              .then((historyData) => {
+                if (historyData.entries && historyData.entries.length > 0) {
+                  setEntries((prev) => {
+                    // Combine history with latest, merging duplicates by ID
+                    const latestIds = new Set(prev.map(e => e.id))
+                    const filteredHistory = historyData.entries.filter(e => !latestIds.has(e.id))
+                    return [...filteredHistory, ...prev]
+                  })
+                }
+              })
+              .catch(() => { })
+              .finally(() => {
+                isHistoryLoadingRef.current = false
+              })
+          }, 1000)
+        }
       })
       .catch(() => { })
       .finally(() => setLoading(false))
@@ -173,6 +203,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     socket.on('new-entry', (entry) => {
       setEntries((prev) => [...prev, entry])
+      
+      // Force scroll to bottom on *new* message from socket
+      setTimeout(() => scrollToBottom(true), 100)
 
       // Avni: show notification when someone messages
       if (isAvni && entry.authorId !== user.id) {
