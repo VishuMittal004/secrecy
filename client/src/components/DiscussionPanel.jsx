@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
-import MessageList from './MessageList'
 import './DiscussionPanel.css'
 
 const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+
 function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [entries, setEntries] = useState([])
   const [input, setInput] = useState('')
@@ -14,9 +14,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [toast, setToast] = useState(null)
   const [lightboxImage, setLightboxImage] = useState(null)
   const [replyTo, setReplyTo] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
   const navigate = useNavigate()
   const socketRef = useRef(null)
   const listEndRef = useRef(null)
@@ -147,19 +144,14 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   }, [])
 
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || ''
     // Fetch existing entries
-    // Initial fetch of messages (latest 100)
-    fetch(`${apiUrl}/api/data?limit=100`, { credentials: 'include' })
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    fetch(`${apiUrl}/api/data`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
-        if (data.entries) {
-          setEntries(data.entries)
-          if (data.entries.length < 100) setHasMore(false)
-        }
+        if (data.entries) setEntries(data.entries)
       })
       .catch(() => { })
-      .finally(() => setLoading(false))
 
     const socket = io(apiUrl, {
       withCredentials: true,
@@ -177,16 +169,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     socket.on('disconnect', () => setConnected(false))
 
     socket.on('new-entry', (entry) => {
-      setEntries((prev) => {
-        // If this is our own message (optimistic), replace the temp one
-        const exists = prev.find(e => e.id === entry.id || (e.optimistic && e.content === entry.content && e.timestamp === entry.timestamp));
-        if (exists && exists.optimistic) {
-          return prev.map(e => e === exists ? entry : e);
-        }
-        // Avoid duplicates just in case
-        if (prev.some(e => e.id === entry.id)) return prev;
-        return [...prev, entry];
-      })
+      setEntries((prev) => [...prev, entry])
 
       // Avni: show notification when someone messages
       if (isAvni && entry.authorId !== user.id) {
@@ -284,52 +267,32 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     }
   }, [])
 
-  const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore || entries.length === 0) return
-    setLoadingMore(true)
-    const oldest = entries[0].timestamp
-    const apiUrl = import.meta.env.VITE_API_URL || ''
-    fetch(`${apiUrl}/api/data?limit=100&before=${encodeURIComponent(oldest)}`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.entries && data.entries.length > 0) {
-          setEntries(prev => [...data.entries, ...prev])
-          if (data.entries.length < 100) setHasMore(false)
-        } else {
-          setHasMore(false)
-        }
-      })
-      .catch(() => { })
-      .finally(() => setLoadingMore(false))
-  }, [loadingMore, hasMore, entries])
+  useEffect(() => {
+    scrollToBottom()
+  }, [entries])
+
+  // Refresh timestamps every 30 seconds + on tab focus
+  const [, setTick] = useState(Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setTick(Date.now()), 30000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setTick(Date.now())
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const content = input.trim()
     if ((!content && !pendingImage) || !socketRef.current) return
-
-    const timestamp = new Date().toISOString();
-    const tempId = `temp-${Date.now()}`;
-    
-    // Optimistic Update
-    const newEntry = {
-      id: tempId,
-      author: user.displayName,
-      authorId: user.id,
-      content,
-      image: pendingImage,
-      replyTo: replyTo ? { id: replyTo.id, author: replyTo.author, content: replyTo.content, image: replyTo.image } : null,
-      timestamp,
-      optimistic: true
-    };
-
-    setEntries(prev => [...prev, newEntry]);
-
     socketRef.current.emit('submit-entry', {
       content,
       image: pendingImage,
       replyTo: replyTo ? { id: replyTo.id, author: replyTo.author, content: replyTo.content, image: replyTo.image } : null,
-      timestamp // Send timestamp so we can match it back
     })
     setInput('')
     setPendingImage(null)
@@ -356,15 +319,15 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     fileInput.click()
   }
 
-  const formatTime = useCallback((timestamp) => {
+  const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-IN', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
     })
-  }, [])
+  }
 
-  const getDateLabel = useCallback((timestamp) => {
+  const getDateLabel = (timestamp) => {
     const date = new Date(timestamp)
     const now = new Date()
 
@@ -381,9 +344,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       return date.toLocaleDateString('en-IN', { weekday: 'long' })
     }
     return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-  }, [])
+  }
 
-  const getAvatarColor = useCallback((name) => {
+  const getAvatarColor = (name) => {
     const colors = [
       'linear-gradient(135deg, #1a73e8, #4a9af5)',
       'linear-gradient(135deg, #00c853, #69f0ae)',
@@ -393,25 +356,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     let hash = 0
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
     return colors[Math.abs(hash) % colors.length]
-  }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [entries])
-
-  // Refresh timestamps every 30 seconds + on tab focus
-  const [, setTick] = useState(Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setTick(Date.now()), 30000)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') setTick(Date.now())
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [])
+  }
 
   return (
     <div className="discussion-panel" id="discussion-panel">
@@ -446,34 +391,91 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       )}
 
       <div className="discussion-list" ref={listRef} id="discussion-entries">
-        {loading ? (
-          <div className="discussion-loading-main">
-            <div className="chat-spinner"></div>
-            <p>Loading chats...</p>
+        {entries.length === 0 ? (
+          <div className="discussion-empty">
+            <p>No doubts posted yet. Be the first to ask!</p>
           </div>
         ) : (
-          <>
-            {hasMore && (
-              <button 
-                className="discussion-load-more" 
-                onClick={loadMore} 
-                disabled={loadingMore}
-              >
-                {loadingMore ? 'Loading...' : 'Load older messages'}
-              </button>
-            )}
-            <MessageList
-              entries={entries}
-              user={user}
-              getAvatarColor={getAvatarColor}
-              formatTime={formatTime}
-              getDateLabel={getDateLabel}
-              setReplyTo={setReplyTo}
-              setLightboxImage={setLightboxImage}
-              listEndRef={listEndRef}
-            />
-          </>
+          entries.map((entry, index) => {
+            const isOwn = entry.authorId === user.id
+            const currentLabel = getDateLabel(entry.timestamp)
+            const prevLabel = index > 0 ? getDateLabel(entries[index - 1].timestamp) : null
+            const showDivider = currentLabel !== prevLabel
+
+            return (
+              <React.Fragment key={entry.id}>
+                {showDivider && (
+                  <div className="discussion-date-divider">
+                    <span>{currentLabel}</span>
+                  </div>
+                )}
+                <div
+                  className={`discussion-entry ${isOwn ? 'discussion-entry-own' : ''}`}
+                  id={`entry-${entry.id}`}
+                >
+                  {/* Avatar — only show on other side */}
+                  {!isOwn && (
+                    <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
+                      {entry.author[0]}
+                    </div>
+                  )}
+
+                  <div className="discussion-bubble-wrap">
+                    {/* Reply button on hover */}
+                    <button
+                      className="discussion-reply-btn"
+                      onClick={() => setReplyTo(entry)}
+                      title="Reply"
+                      aria-label="Reply"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 17 4 12 9 7" />
+                        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                      </svg>
+                    </button>
+
+                    <div className={`discussion-bubble ${isOwn ? 'discussion-bubble-own' : 'discussion-bubble-other'}`}>
+                      {/* Sender name — only for others */}
+                      {!isOwn && <span className="discussion-bubble-author">{entry.author}</span>}
+
+                      {/* Quoted reply preview */}
+                      {entry.replyTo && (
+                        <div className="discussion-reply-quote">
+                          <span className="discussion-reply-quote-author">{entry.replyTo.author}</span>
+                          {entry.replyTo.image && !entry.replyTo.content && (
+                            <span className="discussion-reply-quote-text">📷 Photo</span>
+                          )}
+                          {entry.replyTo.content && (
+                            <span className="discussion-reply-quote-text">{entry.replyTo.content.slice(0, 80)}{entry.replyTo.content.length > 80 ? '…' : ''}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {entry.content && <p className="discussion-bubble-text">{entry.content}</p>}
+                      {entry.image && (
+                        <img
+                          src={entry.image}
+                          alt="Shared image"
+                          className="discussion-entry-image"
+                          onClick={() => setLightboxImage(entry.image)}
+                        />
+                      )}
+                      <span className="discussion-bubble-time">{formatTime(entry.timestamp)}</span>
+                    </div>
+                  </div>
+
+                  {/* Own avatar on right */}
+                  {isOwn && (
+                    <div className="discussion-entry-avatar" style={{ background: getAvatarColor(entry.author) }}>
+                      {entry.author[0]}
+                    </div>
+                  )}
+                </div>
+              </React.Fragment>
+            )
+          })
         )}
+        <div ref={listEndRef} />
       </div>
 
       {/* Reply preview bar */}
@@ -585,4 +587,3 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 }
 
 export default DiscussionPanel
-
