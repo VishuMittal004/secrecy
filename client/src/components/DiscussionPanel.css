@@ -165,6 +165,11 @@
   animation: entryFade 0.25s ease;
 }
 
+.discussion-entry.optimistic {
+  opacity: 0.7;
+  filter: grayscale(0.2);
+}
+
 @keyframes entryFade {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -651,7 +656,51 @@
   cursor: pointer;
 }
 
-.discussion-lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.3);
+/* === Loading & Pagination === */
+.discussion-loading-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.chat-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(26, 115, 232, 0.1);
+  border-top-color: var(--pw-blue);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+
+.discussion-load-more {
+  display: block;
+  margin: 8px auto 16px;
+  padding: 6px 16px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--pw-blue);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.discussion-load-more:hover:not(:disabled) {
+  background: var(--accent-glow);
+  border-color: var(--pw-blue);
+}
+
+.discussion-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
