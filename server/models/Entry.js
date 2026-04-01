@@ -18,4 +18,6 @@ EntrySchema.set("toJSON", {
   },
 });
 
+EntrySchema.index({ timestamp: -1 });
+
 module.exports = mongoose.model("Entry", EntrySchema);
