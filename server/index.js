@@ -117,7 +117,37 @@ app.post("/api/reset", (req, res) => {
 // Get discussion entries (protected)
 app.get("/api/data", requireAuth, async (req, res) => {
   try {
-    const entries = await Entry.find().sort({ timestamp: 1 });
+    const { latest, remainingAfter } = req.query;
+    
+    if (latest) {
+      // Fetch the N most recent using .lean() for maximum performance
+      let rawEntries = await Entry.find()
+        .sort({ timestamp: -1 })
+        .limit(parseInt(latest))
+        .lean();
+      
+      // Map _id to id manually so the frontend doesn't break
+      const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() })).reverse();
+      return res.json({ entries });
+    }
+
+    if (remainingAfter) {
+      const totalCount = await Entry.countDocuments();
+      const amountToFetch = Math.max(0, totalCount - parseInt(remainingAfter));
+      if (amountToFetch === 0) return res.json({ entries: [] });
+      
+      let rawEntries = await Entry.find()
+        .sort({ timestamp: 1 })
+        .limit(amountToFetch)
+        .lean();
+        
+      const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
+      return res.json({ entries });
+    }
+
+    // Default: fetch everything optimized
+    const rawEntries = await Entry.find().sort({ timestamp: 1 }).lean();
+    const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
     return res.json({ entries });
   } catch (err) {
     console.error("[API] Error fetching entries:", err);
