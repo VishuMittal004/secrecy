@@ -114,11 +114,20 @@ app.post("/api/reset", (req, res) => {
   });
 });
 
-// Get discussion entries (protected)
+// Get discussion entries (protected, latest 100 by default)
 app.get("/api/data", requireAuth, async (req, res) => {
   try {
-    const entries = await Entry.find().sort({ timestamp: 1 });
-    return res.json({ entries });
+    const { limit = 100, before } = req.query;
+    const filter = {};
+    if (before) {
+      filter.timestamp = { $lt: new Date(before) };
+    }
+    
+    const entries = await Entry.find(filter)
+      .sort({ timestamp: -1 }) // Get latest first
+      .limit(parseInt(limit));
+    
+    return res.json({ entries: entries.reverse() }); // Return in chronological order
   } catch (err) {
     console.error("[API] Error fetching entries:", err);
     return res.status(500).json({ error: "Failed to fetch entries" });
@@ -301,6 +310,7 @@ io.on("connection", (socket) => {
         content: data.content || "",
         image: data.image || null,
         replyTo: data.replyTo || null,
+        timestamp: data.timestamp || new Date(),
       });
 
       io.emit("new-entry", entry);
