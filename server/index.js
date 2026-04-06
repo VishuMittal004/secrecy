@@ -27,8 +27,6 @@ mongoose
 const USERS = [
   { id: "u1", username: "krati", password: "krishna", displayName: "Krati" },
   { id: "u2", username: "avni", password: "krishna", displayName: "Avni" },
-  { id: "u3", username: "vishi", password: "krishna", displayName: "Vishi" },
-  { id: "u4", username: "vibhuti", password: "krishna", displayName: "Vibhuti" },
 ];
 
 // --- Middleware ---
