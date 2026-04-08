@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import VideoSearch from './pages/VideoSearch'
+import CommerceDoubt from './pages/CommerceDoubt'
 import './App.css'
 
 function App() {
@@ -71,6 +72,9 @@ function App() {
         } />
         <Route path="/dashboard" element={
           user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />
+        } />
+        <Route path="/doubts" element={
+          user ? <CommerceDoubt user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />
         } />
         <Route path="/search" element={<VideoSearch user={user} onLogout={handleLogout} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
