@@ -74,6 +74,11 @@ function Navbar({ user, onLogout }) {
                   <button className="navbar-menu-item" onClick={() => { setMenuOpen(false); navigate('/') }}>
                     Home
                   </button>
+                  {user.id === 'u1' && (
+                    <button className="navbar-menu-item" onClick={() => { setMenuOpen(false); navigate('/doubts') }}>
+                      Doubt Section
+                    </button>
+                  )}
                   {onLogout && (
                     <>
                       <div className="navbar-menu-divider" />
