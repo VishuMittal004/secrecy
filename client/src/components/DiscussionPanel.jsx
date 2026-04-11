@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import "./DiscussionPanel.css";
@@ -394,6 +394,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
   const [hasMore, setHasMore] = useState(true);
   const [isManualLoading, setIsManualLoading] = useState(false);
+  const lastScrollHeightRef = useRef(0);
+  const isPrependingRef = useRef(false);
 
   const isMini = user.id === "u1";
   const isAvni = user.id === "u2";
@@ -402,9 +404,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     const isInitial = isInitialLoadRef.current;
     if (isInitial && entries.length > 0) isInitialLoadRef.current = false;
 
-    // Prevent jerk-to-bottom if we are loading background history and not explicitly forced
-    // BUT allow the very first scroll when messages first appear
-    if (!force && !isInitial && isHistoryLoadingRef.current) return;
+    // Prevent jerk-to-bottom if we are loading history and not explicitly forced
+    if (!force && !isInitial && (isHistoryLoadingRef.current || isManualLoading)) return;
 
     if (listEndRef.current) {
       listEndRef.current.scrollIntoView({
@@ -731,6 +732,15 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     scrollToBottom();
   }, [entries]);
 
+  // Adjust scroll position after prepending history to prevent "jumping"
+  useLayoutEffect(() => {
+    if (isPrependingRef.current && listRef.current) {
+      const delta = listRef.current.scrollHeight - lastScrollHeightRef.current;
+      listRef.current.scrollTop += delta;
+      isPrependingRef.current = false;
+    }
+  }, [entries]);
+
   const handleLoadMore = useCallback(() => {
     if (isManualLoading || !hasMore) return;
     setIsManualLoading(true);
@@ -738,6 +748,11 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     const apiUrl = import.meta.env.VITE_API_URL || "";
     const currentSkip = entries.length;
     const CHUNK_SIZE = 50;
+
+    if (listRef.current) {
+      lastScrollHeightRef.current = listRef.current.scrollHeight;
+      isPrependingRef.current = true;
+    }
 
     fetch(`${apiUrl}/api/data?skip=${currentSkip}&limit=${CHUNK_SIZE}`, {
       credentials: "include",
