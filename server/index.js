@@ -122,7 +122,8 @@ app.get("/api/data", requireAuth, async (req, res) => {
       const limitCount = parseInt(latest || limit) || 100;
 
       // Use aggregation to check for image existence without fetching the heavy data
-      const entries = await Entry.aggregate([
+      // We use $ne with null to be extremely fast and avoid touching the actual image data
+      const results = await Entry.aggregate([
         { $sort: { timestamp: -1 } },
         { $skip: skipCount },
         { $limit: limitCount },
@@ -132,12 +133,12 @@ app.get("/api/data", requireAuth, async (req, res) => {
             content: 1,
             timestamp: 1,
             replyTo: 1,
-            hasImage: { $gt: [{ $strLenCP: { $ifNull: ["$image", ""] } }, 0] },
-            id: "$_id"
+            hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
+            id: { $toString: "$_id" }
         }}
       ]);
       
-      return res.json({ entries: entries.reverse() });
+      return res.json({ entries: results.reverse() });
     }
 
     if (remainingAfter) {
@@ -145,20 +146,29 @@ app.get("/api/data", requireAuth, async (req, res) => {
       const amountToFetch = Math.max(0, totalCount - parseInt(remainingAfter));
       if (amountToFetch === 0) return res.json({ entries: [] });
       
-      let rawEntries = await Entry.find()
-        .sort({ timestamp: 1 })
-        .limit(amountToFetch)
-        .select("-image")
-        .lean();
-        
-      const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
-      return res.json({ entries });
+      const results = await Entry.aggregate([
+        { $sort: { timestamp: 1 } },
+        { $limit: amountToFetch },
+        { $project: {
+            author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
+            hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
+            id: { $toString: "$_id" }
+        }}
+      ]);
+
+      return res.json({ entries: results });
     }
 
-    // Default: fetch everything optimized
-    const rawEntries = await Entry.find().sort({ timestamp: 1 }).lean();
-    const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
-    return res.json({ entries });
+    // Default: fetch everything optimized (Only use this for fallback)
+    const results = await Entry.aggregate([
+      { $sort: { timestamp: 1 } },
+      { $project: {
+          author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
+          hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
+          id: { $toString: "$_id" }
+      }}
+    ]);
+    return res.json({ entries: results });
   } catch (err) {
     console.error("[API] Error fetching entries:", err);
     return res.status(500).json({ error: "Failed to fetch entries" });
