@@ -696,8 +696,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                 onImageClick={setLightboxImage}
               />
             )
-          })
-        )}
+          })}
+        </React.Fragment>
+      )}
         <div ref={listEndRef} />
       </div>
 
