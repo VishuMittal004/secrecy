@@ -234,6 +234,10 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const localStreamRef = useRef(null)
   const isHistoryLoadingRef = useRef(false)
   const isInitialLoadRef = useRef(true)
+  const waveTimerRef = useRef(null)
+
+  const [hasMore, setHasMore] = useState(true)
+  const [isManualLoading, setIsManualLoading] = useState(false)
 
   const isMini = user.id === 'u1'
   const isAvni = user.id === 'u2'
@@ -374,15 +378,22 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       .then((data) => {
         if (data.entries) {
           setEntries(data.entries)
-          setEntries(data.entries)
           setLoading(false)
 
-          // PHASE 2: Wave Loading (Background Chunks)
-          // We wait 5 seconds initially, then fetch 50 messages every 2 seconds
+          // PHASE 2: Wave Loading (Background Chunks) - Limit to 200 messages total
           const CHUNK_SIZE = 50
+          const BACKGROUND_LIMIT = 200
           let currentSkip = 15
 
           const loadNextWave = () => {
+             // Stop if we have over the background limit already
+            if (currentSkip >= BACKGROUND_LIMIT) {
+              setHasMore(true) // Likely there is more, but we stop background fetch
+              return
+            }
+
+            if (waveTimerRef.current) clearTimeout(waveTimerRef.current)
+
             fetch(`${apiUrl}/api/data?skip=${currentSkip}&limit=${CHUNK_SIZE}`, { credentials: 'include' })
               .then((res) => res.json())
               .then((waveData) => {
@@ -390,20 +401,20 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                   setEntries((prev) => {
                     const existingIds = new Set(prev.map(e => e.id))
                     const newEntries = waveData.entries.filter(e => !existingIds.has(e.id))
-                    // Merging backward: Wave Loading fetches older messages, so they go at the start
                     return [...newEntries, ...prev]
                   })
 
-                  // If we got a full chunk, there's likely more history
                   if (waveData.entries.length === CHUNK_SIZE) {
                     currentSkip += CHUNK_SIZE
                     isHistoryLoadingRef.current = true
-                    setTimeout(loadNextWave, 2000) // Next wave in 2 seconds
+                    waveTimerRef.current = setTimeout(loadNextWave, 2000)
                   } else {
                     isHistoryLoadingRef.current = false
+                    setHasMore(false)
                   }
                 } else {
                   isHistoryLoadingRef.current = false
+                  setHasMore(false)
                 }
               })
               .catch(() => {
@@ -411,7 +422,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
               })
           }
 
-          setTimeout(loadNextWave, 5000)
+          waveTimerRef.current = setTimeout(loadNextWave, 5000)
         }
       })
       .catch(() => { })
@@ -530,6 +541,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     return () => {
       cleanupRTC()
+      if (waveTimerRef.current) clearTimeout(waveTimerRef.current)
       socket.disconnect()
     }
   }, [])
@@ -537,6 +549,32 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     scrollToBottom()
   }, [entries])
+
+  const handleLoadMore = useCallback(() => {
+    if (isManualLoading || !hasMore) return
+    setIsManualLoading(true)
+    
+    const apiUrl = import.meta.env.VITE_API_URL || ''
+    const currentSkip = entries.length
+    const CHUNK_SIZE = 50
+
+    fetch(`${apiUrl}/api/data?skip=${currentSkip}&limit=${CHUNK_SIZE}`, { credentials: 'include' })
+      .then((res) => res.json())
+      .then((waveData) => {
+        if (waveData.entries && waveData.entries.length > 0) {
+          setEntries((prev) => {
+            const existingIds = new Set(prev.map(e => e.id))
+            const newEntries = waveData.entries.filter(e => !existingIds.has(e.id))
+            return [...newEntries, ...prev]
+          })
+          if (waveData.entries.length < CHUNK_SIZE) setHasMore(false)
+        } else {
+          setHasMore(false)
+        }
+      })
+      .catch(() => { })
+      .finally(() => setIsManualLoading(false))
+  }, [entries.length, isManualLoading, hasMore])
 
   // Refresh timestamps every 30 seconds + on tab focus
   const [, setTick] = useState(Date.now())
@@ -627,7 +665,19 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             <p>No doubts posted yet. Be the first to ask!</p>
           </div>
         ) : (
-          entries.map((entry, index) => {
+          <React.Fragment>
+            {hasMore && (
+              <div className="discussion-load-more">
+                <button 
+                  className="load-more-btn" 
+                  onClick={handleLoadMore} 
+                  disabled={isManualLoading}
+                >
+                  {isManualLoading ? 'Loading history...' : 'Load Older Messages'}
+                </button>
+              </div>
+            )}
+            {entries.map((entry, index) => {
             const isOwn = entry.authorId === user.id
             const currentLabel = getDateLabel(entry.timestamp)
             const prevLabel = index > 0 ? getDateLabel(entries[index - 1].timestamp) : null
