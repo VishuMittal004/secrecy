@@ -678,3 +678,38 @@
 @keyframes spinner {
   to { transform: rotate(360deg); }
 }
+
+/* === Load More Button === */
+.discussion-load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+  width: 100%;
+}
+
+.load-more-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--pw-blue);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: var(--pw-blue);
+  color: white;
+  border-color: var(--pw-blue);
+  box-shadow: 0 4px 8px rgba(26, 115, 232, 0.2);
+  transform: translateY(-1px);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  background: #f1f5f9;
+}
