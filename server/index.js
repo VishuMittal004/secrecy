@@ -115,18 +115,29 @@ app.post("/api/reset", (req, res) => {
 // Get discussion entries (protected)
 app.get("/api/data", requireAuth, async (req, res) => {
   try {
-    const { latest, remainingAfter } = req.query;
-    
-    if (latest) {
-      // Fetch the N most recent using .lean() for maximum performance
-      let rawEntries = await Entry.find()
-        .sort({ timestamp: -1 })
-        .limit(parseInt(latest))
-        .lean();
+    const { latest, remainingAfter, skip, limit } = req.query;
+
+    if (latest || skip || limit) {
+      const skipCount = parseInt(skip) || 0;
+      const limitCount = parseInt(latest || limit) || 100;
+
+      // Use aggregation to check for image existence without fetching the heavy data
+      const entries = await Entry.aggregate([
+        { $sort: { timestamp: -1 } },
+        { $skip: skipCount },
+        { $limit: limitCount },
+        { $project: {
+            author: 1,
+            authorId: 1,
+            content: 1,
+            timestamp: 1,
+            replyTo: 1,
+            hasImage: { $gt: [{ $strLenCP: { $ifNull: ["$image", ""] } }, 0] },
+            id: "$_id"
+        }}
+      ]);
       
-      // Map _id to id manually so the frontend doesn't break
-      const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() })).reverse();
-      return res.json({ entries });
+      return res.json({ entries: entries.reverse() });
     }
 
     if (remainingAfter) {
@@ -137,6 +148,7 @@ app.get("/api/data", requireAuth, async (req, res) => {
       let rawEntries = await Entry.find()
         .sort({ timestamp: 1 })
         .limit(amountToFetch)
+        .select("-image")
         .lean();
         
       const entries = rawEntries.map(e => ({ ...e, id: e._id.toString() }));
@@ -173,6 +185,17 @@ app.post("/api/purge", requireAuth, async (req, res) => {
 });
 
 // --- YouTube Search Proxy (public) ---
+// endpoint to fetch specific entry image data (Lazy loading)
+app.get("/api/data/:id/image", async (req, res) => {
+  try {
+    const entry = await Entry.findById(req.params.id).select("image").lean();
+    if (!entry || !entry.image) return res.status(404).send("No image");
+    res.json({ image: entry.image });
+  } catch (err) {
+    res.status(500).send("Error");
+  }
+});
+
 app.get("/api/search", async (req, res) => {
   const query = req.query.q;
   const pwOnly = req.query.pw === '1';
