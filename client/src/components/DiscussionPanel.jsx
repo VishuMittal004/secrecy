@@ -194,8 +194,6 @@ const MessageItem = memo(
     );
   }
 );
-,
-);
 
 // Isolated input component to prevent re-rendering the whole panel on every keystroke
 const MessageInput = ({
