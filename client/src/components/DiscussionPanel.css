@@ -99,9 +99,18 @@
 }
 
 @keyframes pulse-green {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 /* Toast Notification */
@@ -120,8 +129,14 @@
 }
 
 @keyframes toast-in {
-  from { transform: translate(-50%, -20px); opacity: 0; }
-  to { transform: translate(-50%, 0); opacity: 1; }
+  from {
+    transform: translate(-50%, -20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 }
 
 .discussion-toast.online {
@@ -166,8 +181,14 @@
 }
 
 @keyframes entryFade {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Own messages: flip to right */
@@ -216,7 +237,9 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
   cursor: pointer;
 }
 
@@ -237,7 +260,7 @@
   border-radius: 16px;
   position: relative;
   word-break: break-word;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .discussion-bubble-other {
@@ -280,18 +303,18 @@
 }
 
 .discussion-bubble-own .discussion-bubble-time {
-  color: rgba(255,255,255,0.75);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 /* Reply quote inside bubble */
 .discussion-reply-quote {
   display: flex;
   flex-direction: column;
-  border-left: 3px solid rgba(255,255,255,0.5);
+  border-left: 3px solid rgba(255, 255, 255, 0.5);
   padding: 4px 8px;
   margin-bottom: 6px;
   border-radius: 4px;
-  background: rgba(0,0,0,0.06);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .discussion-bubble-other .discussion-reply-quote {
@@ -307,7 +330,7 @@
 }
 
 .discussion-bubble-own .discussion-reply-quote-author {
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .discussion-reply-quote-text {
@@ -319,7 +342,7 @@
 }
 
 .discussion-bubble-own .discussion-reply-quote-text {
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Shared images in bubbles */
@@ -595,7 +618,7 @@
   border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* === Image Lightbox === */
@@ -613,8 +636,12 @@
 }
 
 @keyframes lbFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .discussion-lightbox-img {
@@ -628,8 +655,14 @@
 }
 
 @keyframes lbZoom {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .discussion-lightbox-close {
@@ -669,14 +702,16 @@
 .chat-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(26, 115, 232, 0.1);
+  border: 3px solid var(--accent-glow);
   border-top-color: var(--pw-blue);
   border-radius: 50%;
   animation: spinner 0.8s linear infinite;
 }
 
 @keyframes spinner {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* === Load More Button === */
@@ -711,5 +746,5 @@
 .load-more-btn:disabled {
   opacity: 0.6;
   cursor: wait;
-  background: #f1f5f9;
+  background: var(--bg-input);
 }
