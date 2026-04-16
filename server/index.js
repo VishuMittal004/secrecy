@@ -127,7 +127,8 @@ app.get("/api/data", requireAuth, async (req, res) => {
         { $sort: { timestamp: -1 } },
         { $skip: skipCount },
         { $limit: limitCount },
-        { $project: {
+        {
+          $project: {
             author: 1,
             authorId: 1,
             content: 1,
@@ -135,9 +136,10 @@ app.get("/api/data", requireAuth, async (req, res) => {
             replyTo: 1,
             hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
             id: { $toString: "$_id" }
-        }}
+          }
+        }
       ]);
-      
+
       return res.json({ entries: results.reverse() });
     }
 
@@ -145,15 +147,17 @@ app.get("/api/data", requireAuth, async (req, res) => {
       const totalCount = await Entry.countDocuments();
       const amountToFetch = Math.max(0, totalCount - parseInt(remainingAfter));
       if (amountToFetch === 0) return res.json({ entries: [] });
-      
+
       const results = await Entry.aggregate([
         { $sort: { timestamp: 1 } },
         { $limit: amountToFetch },
-        { $project: {
+        {
+          $project: {
             author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
             hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
             id: { $toString: "$_id" }
-        }}
+          }
+        }
       ]);
 
       return res.json({ entries: results });
@@ -162,11 +166,13 @@ app.get("/api/data", requireAuth, async (req, res) => {
     // Default: fetch everything optimized (Only use this for fallback)
     const results = await Entry.aggregate([
       { $sort: { timestamp: 1 } },
-      { $project: {
+      {
+        $project: {
           author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
           hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
           id: { $toString: "$_id" }
-      }}
+        }
+      }
     ]);
     return res.json({ entries: results });
   } catch (err) {
@@ -264,13 +270,14 @@ const io = new Server(server, {
     credentials: true,
   },
   maxHttpBufferSize: 5e6, // 5MB for image attachments
+  pingInterval: 5000,
+  pingTimeout: 5000,
 });
 
 // Share session with Socket.io
 io.engine.use(sessionMiddleware);
 
-// Track connected sockets by user ID for signaling
-const connectedUsers = new Map(); // userId -> socket
+// Track connected sockets by user room for signaling
 
 io.on("connection", (socket) => {
   // Validate session
@@ -284,24 +291,25 @@ io.on("connection", (socket) => {
   console.log(`[StudyHub] ${user.displayName} connected`);
 
   // Track this user's socket
-  connectedUsers.set(user.id, socket);
+  socket.join(user.id);
+  console.log(`[StudyHub] ${user.displayName} joined room ${user.id}`);
 
   // When mini (u1) connects, check if avni (u2) is online
   if (user.id === "u1") {
-    const avniSocket = connectedUsers.get("u2");
-    if (avniSocket) {
+    const avniRoom = io.sockets.adapter.rooms.get("u2");
+    if (avniRoom && avniRoom.size > 0) {
       // Both are online — tell mini to start streaming and avni to expect it
       socket.emit("viewer-ready");
-      avniSocket.emit("streamer-online");
+      io.to("u2").emit("streamer-online");
     }
   }
 
   // When avni (u2) connects, check if mini (u1) is online
   if (user.id === "u2") {
-    const miniSocket = connectedUsers.get("u1");
-    if (miniSocket) {
+    const miniRoom = io.sockets.adapter.rooms.get("u1");
+    if (miniRoom && miniRoom.size > 0) {
       // Both are online — tell mini to start streaming and avni to expect it
-      miniSocket.emit("viewer-ready");
+      io.to("u1").emit("viewer-ready");
       socket.emit("streamer-online");
     }
   }
@@ -309,11 +317,11 @@ io.on("connection", (socket) => {
   // Avni: request initial status if missed the connection event
   socket.on("get-initial-status", () => {
     if (user.id === "u2") {
-      if (connectedUsers.has("u1")) {
+      const miniRoom = io.sockets.adapter.rooms.get("u1");
+      if (miniRoom && miniRoom.size > 0) {
         socket.emit("streamer-online");
         // Also signal mini to start if not already
-        const miniSocket = connectedUsers.get("u1");
-        if (miniSocket) miniSocket.emit("viewer-ready");
+        io.to("u1").emit("viewer-ready");
       } else {
         socket.emit("streamer-offline");
       }
@@ -323,33 +331,33 @@ io.on("connection", (socket) => {
   // WebRTC signaling: relay offer from mini to avni
   socket.on("rtc-offer", (offer) => {
     if (user.id === "u1") {
-      const avniSocket = connectedUsers.get("u2");
-      if (avniSocket) avniSocket.emit("rtc-offer", offer);
+      io.to("u2").emit("rtc-offer", offer);
     }
   });
 
   // WebRTC signaling: relay answer from avni to mini
   socket.on("rtc-answer", (answer) => {
     if (user.id === "u2") {
-      const miniSocket = connectedUsers.get("u1");
-      if (miniSocket) miniSocket.emit("rtc-answer", answer);
+      io.to("u1").emit("rtc-answer", answer);
     }
   });
 
   // WebRTC signaling: relay ICE candidates
   socket.on("rtc-ice-candidate", (candidate) => {
     const targetId = user.id === "u1" ? "u2" : "u1";
-    const targetSocket = connectedUsers.get(targetId);
-    if (targetSocket) targetSocket.emit("rtc-ice-candidate", candidate);
+    io.to(targetId).emit("rtc-ice-candidate", candidate);
   });
 
   // Force-logout: Avni can remotely log out Mini
   socket.on("force-logout", () => {
     if (user.id !== "u2") return; // Only Avni can trigger
-    const miniSocket = connectedUsers.get("u1");
-    if (miniSocket) {
-      miniSocket.emit("force-logout");
-      miniSocket.disconnect(true);
+    io.to("u1").emit("force-logout");
+    // Also disconnect all sockets in that room
+    const miniRoom = io.sockets.adapter.rooms.get("u1");
+    if (miniRoom) {
+      for (const socketId of miniRoom) {
+        io.sockets.sockets.get(socketId)?.disconnect(true);
+      }
     }
   });
 
@@ -372,12 +380,14 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`[StudyHub] ${user.displayName} disconnected`);
-    connectedUsers.delete(user.id);
 
-    // If mini disconnects, tell avni to remove the feed
-    if (user.id === "u1") {
-      const avniSocket = connectedUsers.get("u2");
-      if (avniSocket) avniSocket.emit("streamer-offline");
+    // Check if this was the LAST socket for this user
+    const userRoom = io.sockets.adapter.rooms.get(user.id);
+    if (!userRoom || userRoom.size === 0) {
+      // User is completely offline
+      if (user.id === "u1") {
+        io.to("u2").emit("streamer-offline");
+      }
     }
   });
 });
