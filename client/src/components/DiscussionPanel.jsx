@@ -76,7 +76,7 @@ const MessageItem = memo(
           .then(data => {
             if (data.image) setImgSrc(data.image)
           })
-          .catch(() => {})
+          .catch(() => { })
           .finally(() => setImgLoading(false))
       }
     }, [entry.id, entry.hasImage, imgSrc, imgLoading])
@@ -377,7 +377,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [entries, setEntries] = useState([]);
   const [connected, setConnected] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
-  const [miniOnline, setMiniOnline] = useState(false);
+  const [peerOnline, setPeerOnline] = useState(false);
   const [toast, setToast] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
@@ -597,7 +597,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           waveTimerRef.current = setTimeout(loadNextWave, 5000);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
 
     const socket = io(apiUrl, {
@@ -611,7 +611,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
     socket.on("connect", () => {
       setConnected(true);
-      if (isAvni) socket.emit("get-initial-status");
+      socket.emit("get-initial-status");
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -688,7 +688,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
       socket.on("streamer-online", () => {
         console.log("[Stream] Mini came online");
-        setMiniOnline(true);
+        setPeerOnline(true);
         setToast({ message: "Mini is now online", type: "online" });
         setTimeout(() => setToast(null), 3000);
 
@@ -700,7 +700,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
 
       socket.on("streamer-offline", () => {
         console.log("[Stream] Streamer offline");
-        setMiniOnline(false);
+        setPeerOnline(false);
         setToast({ message: "Mini went offline", type: "offline" });
         setTimeout(() => setToast(null), 3000);
         cleanupRTC();
@@ -712,12 +712,25 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       });
     }
 
+    // --- Krati (Mini): track Avni status ---
+    if (isMini) {
+      socket.on("viewer-online", () => {
+        console.log("[Status] Avni came online");
+        setPeerOnline(true);
+      });
+
+      socket.on("viewer-offline", () => {
+        console.log("[Status] Avni went offline");
+        setPeerOnline(false);
+      });
+    }
+
     // Both: ICE candidates
     socket.on("rtc-ice-candidate", (candidate) => {
       if (pcRef.current) {
         pcRef.current
           .addIceCandidate(new RTCIceCandidate(candidate))
-          .catch(() => {});
+          .catch(() => { });
       }
     });
 
@@ -772,7 +785,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           setHasMore(false);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setIsManualLoading(false));
   }, [entries.length, isManualLoading, hasMore]);
 
@@ -798,11 +811,11 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
         image: pendingImage,
         replyTo: replyTo
           ? {
-              id: replyTo.id,
-              author: replyTo.author,
-              content: replyTo.content,
-              image: replyTo.image,
-            }
+            id: replyTo.id,
+            author: replyTo.author,
+            content: replyTo.content,
+            image: replyTo.image,
+          }
           : null,
       });
       setPendingImage(null);
@@ -842,13 +855,16 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             </p>
           </div>
         </div>
-        {isAvni && (
+        {(isAvni || isMini) && (
           <div
-            className={`mini-status-badge ${miniOnline ? "online" : "offline"}`}
+            className={`mini-status-badge ${peerOnline ? "online" : "offline"}`}
           >
             <span className="status-dot"></span>
-            {miniOnline ? "Mini Online" : "Mini Offline"}
-            {Notification.permission === "default" && (
+            {isAvni 
+              ? (peerOnline ? "Mini Online" : "Mini Offline")
+              : (peerOnline ? "Avni Online" : "Avni Offline")
+            }
+            {isAvni && Notification.permission === "default" && (
               <button
                 className="enable-notifs-btn"
                 onClick={() =>
@@ -929,7 +945,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           socketRef.current && socketRef.current.emit("force-logout")
         }
         isAvni={isAvni}
-        miniOnline={miniOnline}
+        miniOnline={peerOnline}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         pendingImage={pendingImage}
