@@ -301,6 +301,10 @@ io.on("connection", (socket) => {
       // Both are online — tell mini to start streaming and avni to expect it
       socket.emit("viewer-ready");
       io.to("u2").emit("streamer-online");
+      // NEW: Also tell mini that Avni is online for the header indicator
+      socket.emit("viewer-online");
+    } else {
+      socket.emit("viewer-offline");
     }
   }
 
@@ -311,6 +315,8 @@ io.on("connection", (socket) => {
       // Both are online — tell mini to start streaming and avni to expect it
       io.to("u1").emit("viewer-ready");
       socket.emit("streamer-online");
+      // NEW: Also tell mini that Avni is online for the header indicator
+      io.to("u1").emit("viewer-online");
     }
   }
 
@@ -324,6 +330,15 @@ io.on("connection", (socket) => {
         io.to("u1").emit("viewer-ready");
       } else {
         socket.emit("streamer-offline");
+      }
+    }
+    // Added for Krati (u1) to get Avni's initial status
+    if (user.id === "u1") {
+      const avniRoom = io.sockets.adapter.rooms.get("u2");
+      if (avniRoom && avniRoom.size > 0) {
+        socket.emit("viewer-online");
+      } else {
+        socket.emit("viewer-offline");
       }
     }
   });
@@ -387,6 +402,9 @@ io.on("connection", (socket) => {
       // User is completely offline
       if (user.id === "u1") {
         io.to("u2").emit("streamer-offline");
+      }
+      if (user.id === "u2") {
+        io.to("u1").emit("viewer-offline");
       }
     }
   });
