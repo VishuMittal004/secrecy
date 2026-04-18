@@ -294,53 +294,30 @@ io.on("connection", (socket) => {
   socket.join(user.id);
   console.log(`[StudyHub] ${user.displayName} joined room ${user.id}`);
 
-  // When mini (u1) connects, check if avni (u2) is online
-  if (user.id === "u1") {
-    const avniRoom = io.sockets.adapter.rooms.get("u2");
-    if (avniRoom && avniRoom.size > 0) {
-      // Both are online — tell mini to start streaming and avni to expect it
-      socket.emit("viewer-ready");
-      io.to("u2").emit("streamer-online");
-      // NEW: Also tell mini that Avni is online for the header indicator
-      socket.emit("viewer-online");
-    } else {
-      socket.emit("viewer-offline");
-    }
-  }
+  const notifyFullStatus = () => {
+    const miniConnected = io.sockets.adapter.rooms.get("u1")?.size > 0;
+    const avniConnected = io.sockets.adapter.rooms.get("u2")?.size > 0;
 
-  // When avni (u2) connects, check if mini (u1) is online
-  if (user.id === "u2") {
-    const miniRoom = io.sockets.adapter.rooms.get("u1");
-    if (miniRoom && miniRoom.size > 0) {
-      // Both are online — tell mini to start streaming and avni to expect it
-      io.to("u1").emit("viewer-ready");
-      socket.emit("streamer-online");
-      // NEW: Also tell mini that Avni is online for the header indicator
-      io.to("u1").emit("viewer-online");
+    // Notify Avni (u2) about Mini (u1)
+    if (avniConnected) {
+      io.to("u2").emit(miniConnected ? "streamer-online" : "streamer-offline");
     }
-  }
-
-  // Avni: request initial status if missed the connection event
-  socket.on("get-initial-status", () => {
-    if (user.id === "u2") {
-      const miniRoom = io.sockets.adapter.rooms.get("u1");
-      if (miniRoom && miniRoom.size > 0) {
-        socket.emit("streamer-online");
-        // Also signal mini to start if not already
+    // Notify Mini (u1) about Avni (u2)
+    if (miniConnected) {
+      io.to("u1").emit(avniConnected ? "viewer-online" : "viewer-offline");
+      // If both are online, ensure Mini is told to start streaming
+      if (avniConnected) {
         io.to("u1").emit("viewer-ready");
-      } else {
-        socket.emit("streamer-offline");
       }
     }
-    // Added for Krati (u1) to get Avni's initial status
-    if (user.id === "u1") {
-      const avniRoom = io.sockets.adapter.rooms.get("u2");
-      if (avniRoom && avniRoom.size > 0) {
-        socket.emit("viewer-online");
-      } else {
-        socket.emit("viewer-offline");
-      }
-    }
+  };
+
+  // Immediate sync on connection
+  notifyFullStatus();
+
+  // Handle explicit status requests
+  socket.on("get-initial-status", () => {
+    notifyFullStatus();
   });
 
   // WebRTC signaling: relay offer from mini to avni
@@ -396,17 +373,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log(`[StudyHub] ${user.displayName} disconnected`);
 
-    // Check if this was the LAST socket for this user
-    const userRoom = io.sockets.adapter.rooms.get(user.id);
-    if (!userRoom || userRoom.size === 0) {
-      // User is completely offline
-      if (user.id === "u1") {
-        io.to("u2").emit("streamer-offline");
-      }
-      if (user.id === "u2") {
-        io.to("u1").emit("viewer-offline");
-      }
-    }
+    // Brief timeout to ensure adapter rooms are updated before checking
+    setTimeout(() => {
+      notifyFullStatus();
+    }, 100);
   });
 });
 
