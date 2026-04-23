@@ -191,6 +191,23 @@
   }
 }
 
+.message-highlight-pulse {
+  animation: messagePulse 2s ease;
+  border-radius: 8px;
+}
+
+@keyframes messagePulse {
+  0% {
+    background-color: transparent;
+  }
+  10% {
+    background-color: rgba(26, 115, 232, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 /* Own messages: flip to right */
 .discussion-entry-own {
   flex-direction: row-reverse;
