@@ -92,6 +92,8 @@ const MessageItem = memo(
     getAvatarColor,
     onReply,
     onImageClick,
+    isHighlighted,
+    onQuoteClick,
   }) => {
     const [imgSrc, setImgSrc] = useState(null)
     const [imgLoading, setImgLoading] = useState(false)
@@ -119,7 +121,7 @@ const MessageItem = memo(
           </div>
         )}
         <div
-          className={`discussion-entry ${isOwn ? "discussion-entry-own" : ""}`}
+          className={`discussion-entry ${isOwn ? "discussion-entry-own" : ""} ${isHighlighted ? "message-highlight-pulse" : ""}`}
           id={`entry-${entry.id}`}
         >
           {!isOwn && (
@@ -161,7 +163,12 @@ const MessageItem = memo(
               )}
 
               {entry.replyTo && (
-                <div className="discussion-reply-quote">
+                <div 
+                  className="discussion-reply-quote"
+                  onClick={() => onQuoteClick(entry.replyTo.id)}
+                  style={{ cursor: 'pointer' }}
+                  title="Jump to original message"
+                >
                   <span className="discussion-reply-quote-author">
                     {entry.replyTo.author}
                   </span>
@@ -420,6 +427,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [lightboxImage, setLightboxImage] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const listEndRef = useRef(null);
@@ -841,6 +849,15 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     };
   }, []);
 
+  const scrollToMessage = useCallback((messageId) => {
+    const target = document.getElementById(`entry-${messageId}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => setHighlightedMessageId(null), 2000);
+    }
+  }, []);
+
   const handleSendMessage = useCallback(
     (content) => {
       if (!socketRef.current) return;
@@ -966,6 +983,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                   getAvatarColor={getAvatarColor}
                   onReply={setReplyTo}
                   onImageClick={setLightboxImage}
+                  isHighlighted={highlightedMessageId === entry.id}
+                  onQuoteClick={scrollToMessage}
                 />
               );
             })}
