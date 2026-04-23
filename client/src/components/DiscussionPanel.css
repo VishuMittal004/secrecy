@@ -239,8 +239,17 @@
   flex-shrink: 0;
   transition:
     opacity 0.15s,
-    background 0.15s;
+    background 0.15s,
+    transform 0.1s;
   cursor: pointer;
+}
+
+/* On mobile, keep it always visible for better UX */
+@media (max-width: 480px) {
+  .discussion-reply-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .discussion-entry:hover .discussion-reply-btn {
@@ -343,6 +352,53 @@
 
 .discussion-bubble-own .discussion-reply-quote-text {
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* Reply Thumbnail Styles */
+.discussion-reply-quote-img-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.reply-quote-thumb-container {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reply-quote-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reply-quote-thumb-loader {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--pw-blue);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+/* Reply bar media (input area) */
+.discussion-reply-bar-media {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.discussion-reply-bar-media .reply-quote-thumb-container {
+  width: 32px;
+  height: 32px;
 }
 
 /* Shared images in bubbles */
