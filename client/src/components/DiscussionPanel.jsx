@@ -50,6 +50,36 @@ const getAvatarColor = (name) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+// Helper to lazily load tiny thumbnails for reply quotes
+const ReplyThumbnail = memo(({ entryId }) => {
+  const [thumbSrc, setThumbSrc] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!entryId || thumbSrc) return;
+    setLoading(true);
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    fetch(`${apiUrl}/api/data/${entryId}/image`, { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.image) setThumbSrc(data.image);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [entryId, thumbSrc]);
+
+  if (!thumbSrc && !loading) return null;
+  return (
+    <div className="reply-quote-thumb-container">
+      {thumbSrc ? (
+        <img src={thumbSrc} alt="Reply thumb" className="reply-quote-thumb" />
+      ) : (
+        <div className="reply-quote-thumb-loader"></div>
+      )}
+    </div>
+  );
+});
+
 // Memoized message item to prevent re-renders when other messages or typing state change
 // Memoized message item for performance, now includes lazy-loading for images
 const MessageItem = memo(
@@ -135,10 +165,13 @@ const MessageItem = memo(
                   <span className="discussion-reply-quote-author">
                     {entry.replyTo.author}
                   </span>
-                  {entry.replyTo.image && !entry.replyTo.content && (
-                    <span className="discussion-reply-quote-text">
-                      📷 Photo
-                    </span>
+                  {entry.replyTo.hasImage && (
+                    <div className="discussion-reply-quote-img-wrap">
+                      <ReplyThumbnail entryId={entry.replyTo.id} />
+                      {!entry.replyTo.content && (
+                        <span className="discussion-reply-quote-text">📷 Photo</span>
+                      )}
+                    </div>
                   )}
                   {entry.replyTo.content && (
                     <span className="discussion-reply-quote-text">
@@ -228,9 +261,14 @@ const MessageInput = ({
               {replyTo.author}
             </span>
             <span className="discussion-reply-bar-text">
-              {replyTo.image && !replyTo.content
-                ? "📷 Photo"
-                : replyTo.content?.slice(0, 60)}
+              {replyTo.hasImage ? (
+                <div className="discussion-reply-bar-media">
+                  <ReplyThumbnail entryId={replyTo.id} />
+                  <span>{replyTo.content ? replyTo.content.slice(0, 40) : "📷 Photo"}</span>
+                </div>
+              ) : (
+                replyTo.content?.slice(0, 60)
+              )}
             </span>
           </div>
           <button
@@ -814,7 +852,7 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             id: replyTo.id,
             author: replyTo.author,
             content: replyTo.content,
-            image: replyTo.image,
+            hasImage: replyTo.hasImage || !!replyTo.image,
           }
           : null,
       });
