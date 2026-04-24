@@ -858,3 +858,34 @@
   font-size: 1.2rem;
   opacity: 0.3;
 }
+
+/* Seen Status Label (Instagram Style) */
+.instagram-seen-label {
+  font-size: 11px;
+  color: #8e8e8e;
+  text-align: right;
+  margin-top: 1px;
+  margin-bottom: 6px;
+  margin-right: 48px; /* Align with bubbles on the right */
+  animation: seenFadeIn 0.3s ease;
+  font-weight: 500;
+}
+
+@keyframes seenFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Adjust seen label position on mobile */
+@media (max-width: 480px) {
+  .instagram-seen-label {
+    margin-right: 42px;
+    font-size: 10px;
+  }
+}
