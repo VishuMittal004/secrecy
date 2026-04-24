@@ -382,8 +382,7 @@ io.on("connection", (socket) => {
 
       if (result.modifiedCount > 0) {
         // Notify the OTHER user that their messages were read
-        const targetId = user.id === "u1" ? "u2" : "u1";
-        io.to(targetId).emit("messages-read", { readerId: user.id });
+        io.emit("messages-read", { readerId: user.id });
       }
     } catch (err) {
       console.error("[Socket] Error marking messages as read:", err);
