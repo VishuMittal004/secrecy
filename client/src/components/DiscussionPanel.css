@@ -862,13 +862,14 @@
 /* Seen Status Label (Instagram Style) */
 .instagram-seen-label {
   font-size: 11px;
-  color: #8e8e8e;
+  color: #ff0000; /* Temporarily RED to verify it's rendering */
   text-align: right;
   margin-top: 1px;
   margin-bottom: 6px;
   margin-right: 48px; /* Align with bubbles on the right */
   animation: seenFadeIn 0.3s ease;
-  font-weight: 500;
+  font-weight: 600;
+  display: block; /* Ensure it's not hidden */
 }
 
 @keyframes seenFadeIn {
