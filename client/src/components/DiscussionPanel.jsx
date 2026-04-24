@@ -37,6 +37,35 @@ const getDateLabel = (timestamp) => {
   });
 };
 
+const getRelativeTime = (timestamp) => {
+  if (!timestamp) return "";
+  try {
+    const past = new Date(timestamp);
+    if (!past || isNaN(past.getTime())) return "";
+    
+    const now = new Date();
+    const diffMs = now - past;
+    const diffSec = Math.floor(diffMs / 1000);
+    
+    // Safety: if for some reason system clock is slightly off, don't show negative
+    if (diffSec < 0) return "just now";
+    
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffSec < 30) return "just now";
+    if (diffSec < 60) return `${diffSec}s ago`;
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDay === 1) return "yesterday";
+    return `${diffDay}d ago`;
+  } catch (e) {
+    console.error("Relative time error:", e);
+    return "";
+  }
+};
+
 const getAvatarColor = (name) => {
   const colors = [
     "linear-gradient(135deg, #1a73e8, #4a9af5)",
@@ -95,6 +124,8 @@ const MessageItem = memo(
     isHighlighted,
     onQuoteClick,
     isLastRead,
+    readAt,
+    tick,
   }) => {
     const [imgSrc, setImgSrc] = useState(null)
     const [imgLoading, setImgLoading] = useState(false)
@@ -233,7 +264,10 @@ const MessageItem = memo(
         </div>
         {isLastRead && (
           <div className="instagram-seen-label">
-            Seen
+            {(() => {
+              const rel = getRelativeTime(readAt);
+              return rel ? `Seen ${rel}` : "Seen";
+            })()}
           </div>
         )}
       </React.Fragment>
@@ -687,9 +721,10 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       }
     });
 
-    socket.on("messages-read", () => {
+    socket.on("messages-read", (data) => {
+      const readAt = data?.readAt || new Date();
       setEntries((prev) =>
-        prev.map((e) => (e.authorId === user.id ? { ...e, read: true } : e))
+        prev.map((e) => (e.authorId === user.id ? { ...e, read: true, readAt } : e))
       );
     });
 
@@ -992,9 +1027,13 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
             )}
             {(() => {
               // Find the last read message sent by the current user to show "Seen"
-              const lastReadId = [...entries]
-                .reverse()
-                .find((e) => e.authorId === user.id && e.read)?.id;
+              let lastReadId = null;
+              for (let i = entries.length - 1; i >= 0; i--) {
+                if (entries[i].authorId === user.id && entries[i].read) {
+                  lastReadId = entries[i].id;
+                  break;
+                }
+              }
 
               return entries.map((entry, index) => {
                 const isOwn = entry.authorId === user.id;
@@ -1017,6 +1056,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                     isHighlighted={highlightedMessageId === entry.id}
                     onQuoteClick={scrollToMessage}
                     isLastRead={entry.id === lastReadId}
+                    readAt={entry.readAt}
+                    tick={tick}
                   />
                 );
               });
