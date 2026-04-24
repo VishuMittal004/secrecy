@@ -37,24 +37,6 @@ const getDateLabel = (timestamp) => {
   });
 };
 
-const getRelativeTime = (timestamp) => {
-  if (!timestamp) return "";
-  const now = new Date();
-  const past = new Date(timestamp);
-  const diffMs = now - past;
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHr / 24);
-
-  if (diffSec < 30) return "just now";
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay === 1) return "yesterday";
-  return `${diffDay}d ago`;
-};
-
 const getAvatarColor = (name) => {
   const colors = [
     "linear-gradient(135deg, #1a73e8, #4a9af5)",
@@ -113,8 +95,6 @@ const MessageItem = memo(
     isHighlighted,
     onQuoteClick,
     isLastRead,
-    readAt,
-    tick,
   }) => {
     const [imgSrc, setImgSrc] = useState(null)
     const [imgLoading, setImgLoading] = useState(false)
@@ -253,7 +233,7 @@ const MessageItem = memo(
         </div>
         {isLastRead && (
           <div className="instagram-seen-label">
-            Seen {getRelativeTime(readAt)}
+            Seen
           </div>
         )}
       </React.Fragment>
@@ -707,9 +687,9 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       }
     });
 
-    socket.on("messages-read", ({ readerId, readAt }) => {
+    socket.on("messages-read", () => {
       setEntries((prev) =>
-        prev.map((e) => (e.authorId === user.id ? { ...e, read: true, readAt: readAt || new Date() } : e))
+        prev.map((e) => (e.authorId === user.id ? { ...e, read: true } : e))
       );
     });
 
@@ -1037,8 +1017,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                     isHighlighted={highlightedMessageId === entry.id}
                     onQuoteClick={scrollToMessage}
                     isLastRead={entry.id === lastReadId}
-                    readAt={entry.readAt}
-                    tick={tick}
                   />
                 );
               });
