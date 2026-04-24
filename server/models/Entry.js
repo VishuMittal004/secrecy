@@ -8,6 +8,7 @@ const EntrySchema = new mongoose.Schema({
   replyTo: { type: Object, default: null },
   timestamp: { type: Date, default: Date.now },
   read: { type: Boolean, default: false },
+  readAt: { type: Date, default: null },
 });
 
 // Ensure virtual 'id' is serialized and '_id' is removed for frontend compatibility
