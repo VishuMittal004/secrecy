@@ -94,6 +94,7 @@ const MessageItem = memo(
     onImageClick,
     isHighlighted,
     onQuoteClick,
+    isLastRead,
   }) => {
     const [imgSrc, setImgSrc] = useState(null)
     const [imgLoading, setImgLoading] = useState(false)
@@ -230,6 +231,11 @@ const MessageItem = memo(
             </div>
           )}
         </div>
+        {isLastRead && (
+          <div className="instagram-seen-label">
+            Seen
+          </div>
+        )}
       </React.Fragment>
     );
   }
@@ -674,6 +680,17 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
           tag: "studyhub-msg",
         });
       }
+
+      // If we are currently looking at the chat, mark it as read immediately
+      if (document.visibilityState === "visible") {
+        socket.emit("mark-read");
+      }
+    });
+
+    socket.on("messages-read", () => {
+      setEntries((prev) =>
+        prev.map((e) => (e.authorId === user.id ? { ...e, read: true } : e))
+      );
     });
 
     socket.on("entries-cleared", () => {
@@ -840,9 +857,17 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   useEffect(() => {
     const timer = setInterval(() => setTick(Date.now()), 30000);
     const onVisible = () => {
-      if (document.visibilityState === "visible") setTick(Date.now());
+      if (document.visibilityState === "visible") {
+        setTick(Date.now());
+        // Also mark as read when user returns to tab
+        if (socketRef.current) socketRef.current.emit("mark-read");
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
+    // Initial check on mount
+    if (document.visibilityState === "visible" && socketRef.current) {
+      socketRef.current.emit("mark-read");
+    }
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
@@ -965,29 +990,37 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
                 </button>
               </div>
             )}
-            {entries.map((entry, index) => {
-              const isOwn = entry.authorId === user.id;
-              const currentLabel = getDateLabel(entry.timestamp);
-              const prevLabel =
-                index > 0 ? getDateLabel(entries[index - 1].timestamp) : null;
-              const showDivider = currentLabel !== prevLabel;
+            {(() => {
+              // Find the last read message sent by the current user to show "Seen"
+              const lastReadId = [...entries]
+                .reverse()
+                .find((e) => e.authorId === user.id && e.read)?.id;
 
-              return (
-                <MessageItem
-                  key={entry.id}
-                  entry={entry}
-                  isOwn={isOwn}
-                  showDivider={showDivider}
-                  currentLabel={currentLabel}
-                  formatTime={formatTime}
-                  getAvatarColor={getAvatarColor}
-                  onReply={setReplyTo}
-                  onImageClick={setLightboxImage}
-                  isHighlighted={highlightedMessageId === entry.id}
-                  onQuoteClick={scrollToMessage}
-                />
-              );
-            })}
+              return entries.map((entry, index) => {
+                const isOwn = entry.authorId === user.id;
+                const currentLabel = getDateLabel(entry.timestamp);
+                const prevLabel =
+                  index > 0 ? getDateLabel(entries[index - 1].timestamp) : null;
+                const showDivider = currentLabel !== prevLabel;
+
+                return (
+                  <MessageItem
+                    key={entry.id}
+                    entry={entry}
+                    isOwn={isOwn}
+                    showDivider={showDivider}
+                    currentLabel={currentLabel}
+                    formatTime={formatTime}
+                    getAvatarColor={getAvatarColor}
+                    onReply={setReplyTo}
+                    onImageClick={setLightboxImage}
+                    isHighlighted={highlightedMessageId === entry.id}
+                    onQuoteClick={scrollToMessage}
+                    isLastRead={entry.id === lastReadId}
+                  />
+                );
+              });
+            })()}
           </React.Fragment>
         )}
         <div ref={listEndRef} />
