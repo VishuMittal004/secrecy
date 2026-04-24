@@ -134,6 +134,7 @@ app.get("/api/data", requireAuth, async (req, res) => {
             content: 1,
             timestamp: 1,
             replyTo: 1,
+            read: 1,
             hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
             id: { $toString: "$_id" }
           }
@@ -153,7 +154,7 @@ app.get("/api/data", requireAuth, async (req, res) => {
         { $limit: amountToFetch },
         {
           $project: {
-            author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
+            author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1, read: 1,
             hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
             id: { $toString: "$_id" }
           }
@@ -168,7 +169,7 @@ app.get("/api/data", requireAuth, async (req, res) => {
       { $sort: { timestamp: 1 } },
       {
         $project: {
-          author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1,
+          author: 1, authorId: 1, content: 1, timestamp: 1, replyTo: 1, read: 1,
           hasImage: { $ne: [{ $ifNull: ["$image", null] }, null] },
           id: { $toString: "$_id" }
         }
@@ -367,6 +368,25 @@ io.on("connection", (socket) => {
       io.emit("new-entry", entry);
     } catch (err) {
       console.error("[Socket] Error creating entry:", err);
+    }
+  });
+
+  // Mark messages as read
+  socket.on("mark-read", async () => {
+    try {
+      // Find all unread messages sent by the OTHER person
+      const result = await Entry.updateMany(
+        { authorId: { $ne: user.id }, read: false },
+        { $set: { read: true } }
+      );
+
+      if (result.modifiedCount > 0) {
+        // Notify the OTHER user that their messages were read
+        const targetId = user.id === "u1" ? "u2" : "u1";
+        io.to(targetId).emit("messages-read", { readerId: user.id });
+      }
+    } catch (err) {
+      console.error("[Socket] Error marking messages as read:", err);
     }
   });
 
