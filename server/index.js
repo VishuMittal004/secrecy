@@ -25,7 +25,7 @@ mongoose
 
 // Hardcoded users
 const USERS = [
-  { id: "u1", username: "krati", password: "krishna", displayName: "Krati" },
+  { id: "u1", username: "krati", password: "thakursakhi", displayName: "Krati" },
   { id: "u2", username: "avni", password: "krishna", displayName: "Avni" },
 ];
 
