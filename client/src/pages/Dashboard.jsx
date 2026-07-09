@@ -39,6 +39,7 @@ function Dashboard({ user, onLogout }) {
   const [streamActive, setStreamActive] = useState(false)
   const [chatUnlocked, setChatUnlocked] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
+  const [panicConfirmOpen, setPanicConfirmOpen] = useState(false)
   const navigate = useNavigate()
   const remoteVideoRef = useRef(null)
   const tapCountRef = useRef(0)
@@ -130,7 +131,14 @@ function Dashboard({ user, onLogout }) {
     }
   }
 
-  const handlePanic = async () => {
+  // Step 1: just open the confirmation modal
+  const handlePanic = () => {
+    setPanicConfirmOpen(true)
+  }
+
+  // Step 2: user confirmed — execute the actual purge
+  const handlePanicConfirm = async () => {
+    setPanicConfirmOpen(false)
     try {
       const apiUrl = import.meta.env.VITE_API_URL || ''
       await fetch(`${apiUrl}/api/purge`, { method: 'POST', credentials: 'include' })
@@ -183,6 +191,28 @@ function Dashboard({ user, onLogout }) {
             />
           </section>
         </main>
+
+        {/* Panic Confirm Modal — Avni layout */}
+        {panicConfirmOpen && (
+          <div className="panic-modal-overlay" onClick={() => setPanicConfirmOpen(false)}>
+            <div className="panic-modal" onClick={e => e.stopPropagation()}>
+              <div className="panic-modal-icon">⚠️</div>
+              <h3 className="panic-modal-title">Emergency Purge</h3>
+              <p className="panic-modal-desc">
+                This will <strong>permanently delete all chat data</strong> and log you out immediately.<br />
+                Are you sure this isn't a misclick?
+              </p>
+              <div className="panic-modal-actions">
+                <button className="panic-modal-cancel" onClick={() => setPanicConfirmOpen(false)}>
+                  Cancel — take me back
+                </button>
+                <button className="panic-modal-confirm" onClick={handlePanicConfirm}>
+                  Yes, purge everything
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -249,6 +279,26 @@ function Dashboard({ user, onLogout }) {
           </section>
         )}
       </main>
+      {panicConfirmOpen && (
+        <div className="panic-modal-overlay" onClick={() => setPanicConfirmOpen(false)}>
+          <div className="panic-modal" onClick={e => e.stopPropagation()}>
+            <div className="panic-modal-icon">⚠️</div>
+            <h3 className="panic-modal-title">Emergency Purge</h3>
+            <p className="panic-modal-desc">
+              This will <strong>permanently delete all chat data</strong> and log you out immediately.<br />
+              Are you sure this isn't a misclick?
+            </p>
+            <div className="panic-modal-actions">
+              <button className="panic-modal-cancel" onClick={() => setPanicConfirmOpen(false)}>
+                Cancel — take me back
+              </button>
+              <button className="panic-modal-confirm" onClick={handlePanicConfirm}>
+                Yes, purge everything
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
