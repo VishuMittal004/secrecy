@@ -306,3 +306,116 @@
     max-height: 60vh;
   }
 }
+
+/* ======== Panic Confirmation Modal ======== */
+.panic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: overlayFadeIn 0.18s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.panic-modal {
+  background: #1a1f2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  width: min(420px, 90vw);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(220, 38, 38, 0.25);
+  text-align: center;
+  animation: modalSlideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.panic-modal-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  animation: iconPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.12); }
+}
+
+.panic-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f87171;
+  margin: 0 0 10px;
+  letter-spacing: 0.3px;
+}
+
+.panic-modal-desc {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.panic-modal-desc strong {
+  color: #fca5a5;
+}
+
+.panic-modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+.panic-modal-cancel {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 11px 18px;
+  font-size: 0.87rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.panic-modal-cancel:hover {
+  background: rgba(255, 255, 255, 0.13);
+  transform: translateY(-1px);
+}
+
+.panic-modal-confirm {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 18px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+  letter-spacing: 0.2px;
+}
+
+.panic-modal-confirm:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.55);
+}
+
+.panic-modal-confirm:active {
+  transform: scale(0.97);
+}
+
