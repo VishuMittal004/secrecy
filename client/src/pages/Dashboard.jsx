@@ -141,9 +141,9 @@ function Dashboard({ user, onLogout }) {
     return (
       <div className="dashboard-page">
         <Navbar user={user} onLogout={onLogout} />
-        <main className="dashboard-content">
+        <main className="dashboard-content dashboard-avni">
           {/* Discussion Section */}
-          <section className="dashboard-discussion-section" id="dashboard-discussion">
+          <section className="dashboard-discussion-section avni-discussion-section" id="dashboard-discussion">
             <DiscussionPanel
               user={user}
               onPanic={handlePanic}
