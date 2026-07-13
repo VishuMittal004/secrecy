@@ -389,23 +389,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  // -------- Typing Indicator --------
-  socket.on("user-typing", () => {
-    const targetId = user.id === "u1" ? "u2" : "u1";
-    io.to(targetId).emit("user-typing", { username: user.displayName });
-  });
-
-  socket.on("user-stop-typing", () => {
-    const targetId = user.id === "u1" ? "u2" : "u1";
-    io.to(targetId).emit("user-stop-typing", { username: user.displayName });
-  });
-
   socket.on("disconnect", () => {
     console.log(`[StudyHub] ${user.displayName} disconnected`);
-
-    // Clear typing indicator for this user on disconnect
-    const targetId = user.id === "u1" ? "u2" : "u1";
-    io.to(targetId).emit("user-stop-typing", { username: user.displayName });
 
     // Brief timeout to ensure adapter rooms are updated before checking
     setTimeout(() => {
