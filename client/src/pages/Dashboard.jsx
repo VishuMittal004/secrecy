@@ -254,31 +254,13 @@ const MessageInput = ({
   onCancelReply,
   pendingImage,
   onRemoveImage,
-  onTyping,
-  onStopTyping,
 }) => {
   const [input, setInput] = useState("");
-  const typingTimeoutRef = useRef(null);
-
-  const handleInputChange = (e) => {
-    setInput(e.target.value);
-    // Emit typing event
-    if (onTyping) onTyping();
-    // Clear previous idle timer
-    clearTimeout(typingTimeoutRef.current);
-    // After 2 s of idle, emit stop-typing
-    typingTimeoutRef.current = setTimeout(() => {
-      if (onStopTyping) onStopTyping();
-    }, 2000);
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const content = input.trim();
     if (!content && !pendingImage) return;
-    // Stop typing indicator immediately on send
-    clearTimeout(typingTimeoutRef.current);
-    if (onStopTyping) onStopTyping();
     onSendMessage(content);
     setInput("");
   };
@@ -411,7 +393,7 @@ const MessageInput = ({
           className="discussion-input"
           placeholder="Ask a doubt..."
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           maxLength={500}
           id="discussion-input"
           autoComplete="off"
@@ -452,7 +434,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
   const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
-  const [typingUsers, setTypingUsers] = useState([]);
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const listEndRef = useRef(null);
@@ -816,17 +797,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       }
     });
 
-    // -------- Typing Indicator --------
-    socket.on("user-typing", ({ username }) => {
-      setTypingUsers((prev) =>
-        prev.includes(username) ? prev : [...prev, username]
-      );
-    });
-
-    socket.on("user-stop-typing", ({ username }) => {
-      setTypingUsers((prev) => prev.filter((n) => n !== username));
-    });
-
     return () => {
       cleanupRTC();
       if (waveTimerRef.current) clearTimeout(waveTimerRef.current);
@@ -1056,27 +1026,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
         <div ref={listEndRef} />
       </div>
 
-      {/* Typing indicator bubble — shown between message list and input */}
-      {typingUsers.length > 0 && (
-        <div className="typing-indicator-wrap">
-          {typingUsers.map((name) => (
-            <div key={name} className="typing-indicator-bubble">
-              <div
-                className="typing-indicator-avatar"
-                style={{ background: getAvatarColor(name) }}
-              >
-                {name[0]}
-              </div>
-              <div className="typing-dots">
-                <span className="typing-dot" />
-                <span className="typing-dot" />
-                <span className="typing-dot" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <MessageInput
         connected={connected}
         onSendMessage={handleSendMessage}
@@ -1091,8 +1040,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
         onCancelReply={() => setReplyTo(null)}
         pendingImage={pendingImage}
         onRemoveImage={() => setPendingImage(null)}
-        onTyping={() => socketRef.current?.emit("user-typing")}
-        onStopTyping={() => socketRef.current?.emit("user-stop-typing")}
       />
       {/* Lightbox Modal */}
       {lightboxImage && (
