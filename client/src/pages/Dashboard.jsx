@@ -139,11 +139,10 @@ function Dashboard({ user, onLogout }) {
   // ===== AVNI's DASHBOARD (chat only) =====
   if (isAvni) {
     return (
-      <div className="dashboard-page">
+      <div className="dashboard-page avni-page">
         <Navbar user={user} onLogout={onLogout} />
-        <main className="dashboard-content dashboard-avni">
-          {/* Discussion Section */}
-          <section className="dashboard-discussion-section avni-discussion-section" id="dashboard-discussion">
+        <main className="avni-main">
+          <section className="avni-discussion-section" id="dashboard-discussion">
             <DiscussionPanel
               user={user}
               onPanic={handlePanic}
