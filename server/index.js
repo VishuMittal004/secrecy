@@ -323,6 +323,9 @@ io.engine.use(sessionMiddleware);
 
 // Track connected sockets by user room for signaling
 
+// Track state of Mini connection to prevent duplicate triggers across sockets
+let previousMiniState = false;
+
 io.on("connection", (socket) => {
   // Validate session
   const session = socket.request.session;
@@ -337,9 +340,6 @@ io.on("connection", (socket) => {
   // Track this user's socket
   socket.join(user.id);
   console.log(`[StudyHub] ${user.displayName} joined room ${user.id}`);
-
-  // Track state of Mini connection to prevent duplicate triggers
-  let previousMiniState = false;
 
   const sendPushToAvni = async (title, body) => {
     try {
