@@ -587,6 +587,61 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
     }
   }, []);
 
+  // Register push notifications specifically for Avni
+  useEffect(() => {
+    if (isAvni && "serviceWorker" in navigator && "PushManager" in window) {
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      
+      const registerPush = async () => {
+        try {
+          // Ask for permission if default
+          if (Notification.permission === "default") {
+            await Notification.requestPermission();
+          }
+          if (Notification.permission !== "granted") {
+            console.log("[Push] Permission not granted.");
+            return;
+          }
+
+          const registration = await navigator.serviceWorker.ready;
+          
+          // Get dynamic VAPID key from backend
+          const resKey = await fetch(`${apiUrl}/api/notifications/vapid-key`, { credentials: "include" });
+          const { publicKey } = await resKey.json();
+          if (!publicKey) return;
+
+          // Convert VAPID key to Uint8Array
+          const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
+          const base64 = (publicKey + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+
+          // Subscribe user
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: outputArray
+          });
+
+          // Send subscription details to server
+          await fetch(`${apiUrl}/api/notifications/subscribe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subscription),
+            credentials: "include"
+          });
+          console.log("[Push] Subscribed successfully!");
+        } catch (err) {
+          console.error("[Push] Subscription error:", err);
+        }
+      };
+
+      registerPush();
+    }
+  }, [isAvni]);
+
   useEffect(() => {
     // Fetch existing entries
     const apiUrl = import.meta.env.VITE_API_URL || "";
@@ -673,19 +728,12 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
       // Force scroll to bottom on *new* message from socket
       setTimeout(() => scrollToBottom(true), 100);
 
-      // Avni: show notification when someone messages
-      if (isAvni && entry.authorId !== user.id) {
-        showSystemNotification("StudyHub", {
-          body: `${entry.author}: ${entry.content || (entry.image ? "sent an image" : "")}`,
-          tag: "studyhub-msg",
-        });
-      }
-
       // If we are currently looking at the chat, mark it as read immediately
       if (document.visibilityState === "visible") {
         socket.emit("mark-read");
       }
     });
+
 
     socket.on("messages-read", () => {
       setEntries((prev) =>
@@ -754,11 +802,6 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
         setPeerOnline(true);
         setToast({ message: "Mini is now online", type: "online" });
         setTimeout(() => setToast(null), 3000);
-
-        showSystemNotification("StudyHub", {
-          body: "Mini is now online",
-          tag: "studyhub-online",
-        });
       });
 
       socket.on("streamer-offline", () => {
@@ -767,12 +810,8 @@ function DiscussionPanel({ user, onPanic, onStreamChange, onLogout }) {
         setToast({ message: "Mini went offline", type: "offline" });
         setTimeout(() => setToast(null), 3000);
         cleanupRTC();
-
-        showSystemNotification("StudyHub", {
-          body: "Mini went offline",
-          tag: "studyhub-offline",
-        });
       });
+
     }
 
     // --- Krati (Mini): track Avni status ---
