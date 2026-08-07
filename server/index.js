@@ -7,6 +7,24 @@ const session = require("express-session");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 const Entry = require("./models/Entry");
+const webpush = require("web-push");
+
+// Configure VAPID keys for Web Push notifications
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BPkS6Z943q9dopm42_pb1XO0UaILAi0Lr49XcnQlrux00l6xuN20AxDTkhXF3BDoboXE-07LERDsk_sv5AXoToU";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "zb8pInuYhu5bKeAZrY2NXafLm0D4tryQTUO7nDOgHPk";
+webpush.setVapidDetails(
+  "mailto:example@yourdomain.com",
+  vapidPublicKey,
+  vapidPrivateKey
+);
+
+// Define Schema for Push Subscriptions
+const SubscriptionSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  subscription: { type: Object, required: true }
+});
+const PushSubscription = mongoose.model("PushSubscription", SubscriptionSchema);
+
 
 const app = express();
 app.set('trust proxy', 1); // Required for Render's reverse proxy — lets Express see HTTPS so secure cookies work
@@ -111,6 +129,31 @@ app.post("/api/reset", (req, res) => {
     return res.json({ success: true });
   });
 });
+
+// Get VAPID Public Key
+app.get("/api/notifications/vapid-key", requireAuth, (req, res) => {
+  res.json({ publicKey: vapidPublicKey });
+});
+
+// Subscribe to push notifications
+app.post("/api/notifications/subscribe", requireAuth, async (req, res) => {
+  const subscription = req.body;
+  const userId = req.session.user.id;
+
+  try {
+    // Keep only one subscription per user to avoid duplicates
+    await PushSubscription.findOneAndUpdate(
+      { userId },
+      { userId, subscription },
+      { upsert: true, new: true }
+    );
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error("[Push] Error saving subscription:", err);
+    res.status(500).json({ error: "Failed to save subscription" });
+  }
+});
+
 
 // Get discussion entries (protected)
 app.get("/api/data", requireAuth, async (req, res) => {
@@ -295,20 +338,45 @@ io.on("connection", (socket) => {
   socket.join(user.id);
   console.log(`[StudyHub] ${user.displayName} joined room ${user.id}`);
 
+  // Track state of Mini connection to prevent duplicate triggers
+  let previousMiniState = false;
+
+  const sendPushToAvni = async (title, body) => {
+    try {
+      const avniSub = await PushSubscription.findOne({ userId: "u2" });
+      if (avniSub && avniSub.subscription) {
+        const payload = JSON.stringify({ title, body });
+        await webpush.sendNotification(avniSub.subscription, payload);
+        console.log(`[Push] Notification sent to Avni: "${body}"`);
+      }
+    } catch (err) {
+      console.error("[Push] Error sending push notification:", err);
+    }
+  };
+
   const notifyFullStatus = () => {
     const miniConnected = io.sockets.adapter.rooms.get("u1")?.size > 0;
     const avniConnected = io.sockets.adapter.rooms.get("u2")?.size > 0;
 
-    // Notify Avni (u2) about Mini (u1)
+    // Notify Avni (u2) about Mini (u1) via WebSocket if she is online
     if (avniConnected) {
       io.to("u2").emit(miniConnected ? "streamer-online" : "streamer-offline");
     }
-    // Notify Mini (u1) about Avni (u2)
+    // Notify Mini (u1) about Avni (u2) via WebSocket
     if (miniConnected) {
       io.to("u1").emit(avniConnected ? "viewer-online" : "viewer-offline");
-      // If both are online, ensure Mini is told to start streaming
       if (avniConnected) {
         io.to("u1").emit("viewer-ready");
+      }
+    }
+
+    // Trigger Web Push Notification for Avni (u2) only on Mini's (u1) status transition
+    if (miniConnected !== previousMiniState) {
+      previousMiniState = miniConnected;
+      if (miniConnected) {
+        sendPushToAvni("StudyHub", "Mini is now online");
+      } else {
+        sendPushToAvni("StudyHub", "Mini went offline");
       }
     }
   };
@@ -320,6 +388,7 @@ io.on("connection", (socket) => {
   socket.on("get-initial-status", () => {
     notifyFullStatus();
   });
+
 
   // WebRTC signaling: relay offer from mini to avni
   socket.on("rtc-offer", (offer) => {
