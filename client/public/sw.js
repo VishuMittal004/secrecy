@@ -6,6 +6,7 @@ self.addEventListener('push', (event) => {
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     tag: data.tag || 'studyhub-notification',
+    renotify:true,
     data: { url: data.url || '/' }
   };
   event.waitUntil(self.registration.showNotification(data.title || 'StudyHub', options));
